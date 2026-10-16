@@ -1,0 +1,6 @@
+lib/config.php
+data/*
+!data/.htaccess
+*.zip
+.DS_Store
+Thumbs.db
