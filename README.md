@@ -8,10 +8,12 @@ Instala no celular e no computador como um app, e sincroniza pelos dois.
 
 - **Missões da semana:** planejamento dia a dia, com dificuldade (Fácil +10, Média +25, Difícil +50, Chefão +100 XP)
 - **Hábitos diários** com combo (+20 XP ao completar todos) e contador de dias seguidos
+- **Diário de comida com IA:** escreva o que comeu e o Gemini estima calorias e macros; gráfico da semana contra a meta e balanço semanal feito pela IA
+- **Meu Jardim:** cada semana planta uma árvore em pixel art que cresce a cada dia bem cumprido (XP do dia acima da meta); as semanas formam uma floresta
 - **Saúde:** treino por dia da semana, cardápio com check de refeições e gráfico de peso
 - **Estudos e leituras:** trilha de estudos e estante de livros com nota de 1 a 5 e resumo
 - **Jarvis (IA):** chat com contexto do dia e **opinião sobre o resumo de cada livro**, via API do Gemini
-- **Gamificação:** XP, níveis, moedas e loja com 5 temas (HUD, portátil retrô, synthwave, código verde, taverna), mascotes em pixel art que andam pela tela, títulos, efeitos de partícula e som 8 bits
+- **Gamificação:** XP, níveis, moedas e loja com 10 temas (HUD, portátil retrô, synthwave, código verde, taverna, abismo, neon city, mangá bizarro, Halloween, mistério), 9 mascotes em pixel art com animações próprias (até 3 andando juntos) e mascotes enviados pelo usuário, títulos, efeitos de partícula e som 8 bits
 - **Spotify:** música tocando agora com controles, top músicas, top artistas, gêneros e histórico (OAuth com PKCE, direto do navegador)
 - **PWA:** instalável, abre rápido com service worker
 

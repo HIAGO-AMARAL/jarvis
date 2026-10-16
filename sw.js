@@ -1,7 +1,7 @@
 // Service worker: guarda a "casca" do app para abrir rápido e instalar como aplicativo.
 // Os dados (api.php) sempre vêm da internet.
-const CACHE = 'jarvis-v1';
-const CASCA = ['./', 'index.php', 'assets/app.css?v=1', 'assets/app.js?v=1', 'manifest.webmanifest', 'assets/icons/icone-192.png'];
+const CACHE = 'jarvis-v2';
+const CASCA = ['./', 'index.php', 'assets/app.css?v=2', 'assets/app.js?v=2', 'manifest.webmanifest', 'assets/icons/icone-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CASCA)).then(() => self.skipWaiting()));

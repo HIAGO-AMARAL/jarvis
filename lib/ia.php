@@ -23,7 +23,7 @@ function ia_modelo(): string
 /**
  * $mensagens: [['papel' => 'user'|'model', 'texto' => '...'], ...]
  */
-function ia_gerar(string $instrucao, array $mensagens, float $temperatura = 0.7): string
+function ia_gerar(string $instrucao, array $mensagens, float $temperatura = 0.7, bool $json = false): string
 {
     if (!ia_configurada()) {
         throw new RuntimeException('Coloque a chave do Gemini em Ajustes para falar com o Jarvis.');
@@ -38,8 +38,11 @@ function ia_gerar(string $instrucao, array $mensagens, float $temperatura = 0.7)
     $corpo = [
         'system_instruction' => ['parts' => [['text' => $instrucao]]],
         'contents' => $contents,
-        'generationConfig' => ['temperature' => $temperatura, 'maxOutputTokens' => 1500],
+        'generationConfig' => ['temperature' => $temperatura, 'maxOutputTokens' => 2000],
     ];
+    if ($json) {
+        $corpo['generationConfig']['responseMimeType'] = 'application/json';
+    }
     $url = 'https://generativelanguage.googleapis.com/v1beta/models/' . ia_modelo() . ':generateContent';
     $ch = curl_init($url);
     curl_setopt_array($ch, [

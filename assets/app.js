@@ -66,7 +66,8 @@
     moeda: '<rect x="6" y="3" width="12" height="18" fill="#ffc83d"/><rect x="3" y="6" width="18" height="12" fill="#ffc83d"/><rect x="10" y="7" width="4" height="10" fill="#b8860b"/>',
     fogo: '<path d="M12 2h2v4h2v2h2v4h2v8H4v-8h2V8h2v4h2V6h2z" fill="#ff7a1a"/><path d="M10 14h4v6h-4z" fill="#ffd23f"/>',
     raio: '<path d="M13 2L5 14h6l-2 8 10-13h-7z" fill="#ffd23f"/>',
-    sair: '<path d="M15 4h4v16h-4M10 17l-5-5 5-5M5 12h11"/>'
+    sair: '<path d="M15 4h4v16h-4M10 17l-5-5 5-5M5 12h11"/>',
+    jardim: '<path d="M11 21v-7M6 14h12M12 3l6 6h-3l3 4H6l3-4H6z"/>'
   };
   function ico(n, extra) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" shape-rendering="crispEdges" ' + (extra || '') + '>' + (ICO[n] || '') + '</svg>';
@@ -81,8 +82,19 @@
     'pet-fantasma': { cores: { w: '#eef6ff', W: '#a9c4e0', k: '#20304a', p: '#ff9ec7' }, mapa: [
       '...WWWWW....', '..WwwwwwW...', '.WwwkwwkwW..', '.WwwkwwkwW..', '.WwpwwwpwW..', '.WwwwkkwwW..', '.WwwwwwwwW..', '.WwWwwWwwW..', '.W.W.WW.W...'] },
     'pet-dragao': { cores: { r: '#e5533d', R: '#9c2b1c', y: '#ffd23f', w: '#ffffff', k: '#2a0d06', o: '#ff9a3d' }, mapa: [
-      '.......RR...', '......RrrR..', 'R....RrwkrR.', 'rR..RrrrrrRo', 'rrRRrrrrrRR.', '.rrrrryyrR..', '..RrryyyrR..', '..RrrrrrrR..', '...RR..RR...'] }
+      '.......RR...', '......RrrR..', 'R....RrwkrR.', 'rR..RrrrrrRo', 'rrRRrrrrrRR.', '.rrrrryyrR..', '..RrryyyrR..', '..RrrrrrrR..', '...RR..RR...'] },
+    'pet-abobora': { cores: { o: '#ff8a1f', O: '#c25a00', g: '#3fa34d', y: '#ffe066', k: '#2a1300' }, mapa: [
+      '.....gg.....', '.....g......', '..OOOoOOO...', '.OooooooooO.', 'OoykoooykooO', 'OokkooookkoO', 'OooooooooooO', 'Ooykykykyko.', '.OokykykoOO.', '..OOOOOOOO..'] },
+    'pet-morcego': { cores: { b: '#2d2140', B: '#140c22', r: '#ff4d6d', w: '#ffffff' }, mapa: [
+      'B............B', 'BB....bb....BB', 'bBB..bbbb..BBb', 'bbBBbrbbrbBBbb', '.bbbbbbbbbbbb.', '..bb.bwwb.bb..', '......bb......'] },
+    'pet-gato': { cores: { k: '#141414', K: '#2b2b2b', y: '#c6ff3d', p: '#ff8fb1' }, mapa: [
+      '.k..k.......', '.kk.kk......', '.kkkkk......', 'kykkyk.....k', 'kkkpkk....k.', '.kkkkkkkkkk.', '.kKkkkkkKkk.', '.kk.kk.kk.kk', '.k..k..k..k.'] },
+    'pet-capivara': { cores: { c: '#9b6a3c', C: '#6b4524', k: '#1d120a', n: '#4a2f17' }, mapa: [
+      '..CC..........', '.CccC.........', 'Cckccccccccc..', 'nccccccccccccC', 'nncccccccccccC', '.CccccccccccC.', '..CC..CC.CC...', '..C...C...C...'] },
+    'pet-drone': { cores: { m: '#5c6673', M: '#2f363f', c: '#02d7f2', r: '#ff003c', w: '#d9e2ec' }, mapa: [
+      'MM........MM', 'wwwwM..Mwwww', '...MmmmmM...', '..MmmmmmmM..', '..MmcccmmM..', '..MmmmmmmM..', '...MmrmmM...', '....M..M....', '...M....M...'] }
   };
+  var PET_ESTILO = { 'pet-fantasma': 'flutua', 'pet-drone': 'flutua', 'pet-morcego': 'voa', 'pet-capivara': 'lento', 'pet-gato': 'gato', 'pet-abobora': 'abobora' };
   function petSvg(id) {
     var p = PETS[id];
     if (!p) return '';
@@ -92,18 +104,22 @@
     });
     return '<svg viewBox="0 0 ' + w + ' ' + h + '" shape-rendering="crispEdges">' + r + '</svg>';
   }
+  function petImg(id) {
+    if (id === 'pet-proprio') return '<img src="api.php?r=pet_imagem" alt="">';
+    if (id.indexOf('proprio:') === 0) return '<img src="api.php?r=pet_imagem&a=' + encodeURIComponent(id.slice(8)) + '" alt="">';
+    return petSvg(id);
+  }
   function aplicarPet() {
-    var el = $('#pet'), id = estado.equipado ? estado.equipado.pet : '';
-    el.className = '';
-    if (!id) { el.innerHTML = ''; return; }
-    el.innerHTML = '<div class="corpo">' + (id === 'pet-proprio' ? '<img src="api.php?r=pet_imagem&t=' + Date.now() + '" alt="">' : petSvg(id)) + '</div>';
-    el.className = 'ativo' + (id === 'pet-fantasma' ? ' fantasma' : '');
+    var el = $('#pet'), pets = (estado.equipado && estado.equipado.pets) || [];
+    el.innerHTML = pets.map(function (id, i) {
+      return '<div class="mascote m' + (i + 1) + ' ' + (PET_ESTILO[id] || '') + '"><div class="corpo">' + petImg(id) + '</div></div>';
+    }).join('');
   }
   function petFeliz() {
-    var el = $('#pet');
-    if (!el.classList.contains('ativo')) return;
-    el.classList.add('feliz');
-    setTimeout(function () { el.classList.remove('feliz'); }, 1600);
+    $$('.mascote').forEach(function (m) {
+      m.classList.add('feliz');
+      setTimeout(function () { m.classList.remove('feliz'); }, 1600);
+    });
   }
 
   // ---------------------------------------------------------------- tema e Matrix
@@ -186,7 +202,7 @@
   // ---------------------------------------------------------------- casca e HUD
   var ROTAS = [
     ['hoje', 'Hoje'], ['semana', 'Missões'], ['saude', 'Saúde'], ['estudos', 'Estudos'],
-    ['jarvis', 'Jarvis'], ['loja', 'Loja'], ['spotify', 'Spotify'], ['ajustes', 'Ajustes']
+    ['jardim', 'Jardim'], ['jarvis', 'Jarvis'], ['loja', 'Loja'], ['spotify', 'Spotify'], ['ajustes', 'Ajustes']
   ];
   function montarCasca() {
     var nav = ROTAS.map(function (r) { return '<a class="nav-item" href="#' + r[0] + '" data-rota="' + r[0] + '">' + ico(r[0]) + '<span class="rot">' + r[1] + '</span></a>'; }).join('');
@@ -365,13 +381,22 @@
     });
   };
 
+  function abasSaude(aba) {
+    return '<div class="cabeca-pagina"><div><h1>Saúde</h1><p>Diário de comida, treino, cardápio e peso.</p></div></div>' +
+      '<div class="abas">' + [['diario', 'Diário de comida'], ['treino', 'Treino'], ['dieta', 'Cardápio'], ['peso', 'Peso']].map(function (a) { return '<button class="aba ' + (aba === a[0] ? 'ativa' : '') + '" data-aba="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
+  }
+  function ligarAbasSaude(tela) {
+    $$('[data-aba]', tela).forEach(function (b) { b.addEventListener('click', function () { TELAS.saude.aba = b.dataset.aba; TELAS.saude(tela); }); });
+  }
+
   TELAS.saude = function (tela) {
     tela = novo(tela);
+    var abaAtual = (TELAS.saude.aba = TELAS.saude.aba || 'diario');
+    if (abaAtual === 'diario') { diarioComida(tela); return; }
     api('saude').then(function (d) {
       var hojeDia = new Date().getDay();
-      var aba = (TELAS.saude.aba = TELAS.saude.aba || 'treino');
-      var html = '<div class="cabeca-pagina"><div><h1>Saúde</h1><p>Treino, dieta e peso. Pesar toda segunda, ao acordar.</p></div></div>' +
-        '<div class="abas">' + [['treino', 'Treino'], ['dieta', 'Dieta'], ['peso', 'Peso']].map(function (a) { return '<button class="aba ' + (aba === a[0] ? 'ativa' : '') + '" data-aba="' + a[0] + '">' + a[1] + '</button>'; }).join('') + '</div>';
+      var aba = abaAtual;
+      var html = abasSaude(aba);
       if (aba === 'treino') {
         html += '<div class="grade">' + [1, 2, 3, 4, 5, 6, 0].map(function (n) {
           var t = d.treino.filter(function (x) { return +x.dia === n; })[0] || { dia: n, titulo: 'Descanso', exercicios: '' };
@@ -390,7 +415,7 @@
           '<ul class="lista" style="margin-top:10px">' + d.pesos.slice(0, 8).map(function (p) { return '<li class="item"><div class="item-titulo">' + br(p.data) + '/' + p.data.slice(0, 4) + '</div><span class="xp-tag">' + String(p.kg).replace('.', ',') + ' kg</span><button class="btn-ico" data-del-peso="' + p.data + '">' + ico('lixo') + '</button></li>'; }).join('') + '</ul></section></div>';
       }
       tela.innerHTML = html;
-      $$('[data-aba]', tela).forEach(function (b) { b.addEventListener('click', function () { TELAS.saude.aba = b.dataset.aba; TELAS.saude(tela); }); });
+      ligarAbasSaude(tela);
       $$('[data-treino]', tela).forEach(function (b) {
         b.addEventListener('click', function () {
           var n = +b.dataset.treino, t = d.treino.filter(function (x) { return +x.dia === n; })[0] || { titulo: '', exercicios: '' };
@@ -411,6 +436,57 @@
       $$('[data-del-peso]', tela).forEach(function (b) { b.addEventListener('click', function () { api('peso_excluir', { data: b.dataset.delPeso }).then(function () { TELAS.saude(tela); }); }); });
     });
   };
+
+  function diarioComida(tela, inicio) {
+    inicio = inicio || segunda(iso(new Date()));
+    api('comidas&inicio=' + inicio).then(function (d) {
+      var hoje = iso(new Date()), dias = [];
+      for (var i = 0; i < 7; i++) dias.push(somaDias(inicio, i));
+      var soma = function (lista, campo) { return lista.reduce(function (s, c) { return s + (+c[campo] || 0); }, 0); };
+      var doDia = function (dia) { return d.comidas.filter(function (c) { return c.data === dia; }); };
+      var hojeL = doDia(hoje);
+      var registrados = dias.filter(function (x) { return doDia(x).length; });
+      var mediaK = registrados.length ? Math.round(registrados.reduce(function (s, x) { return s + soma(doDia(x), 'kcal'); }, 0) / registrados.length) : 0;
+      var mediaP = registrados.length ? Math.round(registrados.reduce(function (s, x) { return s + soma(doDia(x), 'proteina'); }, 0) / registrados.length) : 0;
+      var maxK = Math.max(d.meta_kcal * 1.3, Math.max.apply(null, dias.map(function (x) { return soma(doDia(x), 'kcal'); })));
+      var macro = function (rot, v, un) { return '<div><b>' + Math.round(v) + '</b>' + un + ' ' + rot + '</div>'; };
+      tela.innerHTML = abasSaude('diario') +
+        '<div class="grade"><section class="painel c-7"><header><h2 class="titulo-pixel">O que você comeu?</h2><span class="mini">+2 XP por registro</span></header>' +
+        '<form data-comer class="linha"><input class="cresce" name="desc" placeholder="Ex.: 2 ovos mexidos, 1 pão francês e café com leite" required><input type="date" name="data" value="' + (inicio <= hoje && hoje <= dias[6] ? hoje : dias[0]) + '" style="max-width:170px"><button class="btn cheio">Registrar</button></form>' +
+        '<p class="mini">O Jarvis estima calorias e macros com IA. São valores aproximados.</p>' +
+        '<h3 class="titulo-pixel" style="margin:14px 0 10px">Hoje</h3><div class="macros">' + macro('kcal', soma(hojeL, 'kcal'), '') + macro('prot.', soma(hojeL, 'proteina'), 'g') + macro('carbo', soma(hojeL, 'carbo'), 'g') + macro('gord.', soma(hojeL, 'gordura'), 'g') + '</div>' +
+        '<ul class="lista" style="margin-top:10px">' + (hojeL.length ? hojeL.map(function (c) {
+          var itens = []; try { itens = JSON.parse(c.itens || '[]'); } catch (e) {}
+          return '<li class="item"><div class="item-titulo">' + esc(c.descricao) + '<small>' + itens.map(function (x) { return esc(x.nome) + (x.quantidade ? ' (' + esc(x.quantidade) + ')' : '') + ' ~' + Math.round(x.kcal) + ' kcal'; }).join(' · ') + '</small></div><span class="xp-tag">' + Math.round(c.kcal) + ' kcal</span><button class="btn-ico" data-del-comida="' + c.id + '">' + ico('lixo') + '</button></li>';
+        }).join('') : '<li class="vazio">Nada registrado hoje.</li>') + '</ul></section>' +
+        '<section class="painel c-5"><header><h2 class="titulo-pixel">Semana</h2><div class="linha"><button class="btn-ico" data-sem="-7">' + ico('esq') + '</button><button class="btn-ico" data-sem="7">' + ico('dir') + '</button></div></header>' +
+        '<p class="mini">' + br(d.inicio) + ' a ' + br(d.fim) + ' · média ' + mediaK + ' kcal e ' + mediaP + ' g de proteína nos dias registrados</p>' +
+        '<div class="barras-kcal"><div class="meta" style="bottom:' + (d.meta_kcal / maxK * 140 + 24) + 'px"><span>meta ' + d.meta_kcal + '</span></div>' +
+        dias.map(function (x) { var k = soma(doDia(x), 'kcal'); return '<div class="b"><span>' + (k ? Math.round(k) : '') + '</span><i class="' + (k > d.meta_kcal * 1.1 ? 'acima' : '') + '" style="height:' + (k / maxK * 140) + 'px"></i>' + DIAS[deIso(x).getDay()] + '</div>'; }).join('') + '</div>' +
+        '<form data-metas class="linha" style="margin-top:12px"><label class="campo cresce">Meta kcal<input name="kcal" type="number" value="' + d.meta_kcal + '"></label><label class="campo cresce">Meta proteína (g)<input name="prot" type="number" value="' + d.meta_proteina + '"></label><button class="btn pequeno" style="align-self:end">Salvar</button></form>' +
+        '<button class="btn" data-balanco style="margin-top:12px">' + ico('jarvis') + ' Balanço da semana</button>' +
+        '<div class="opiniao" data-bal style="margin-top:10px"' + (d.balanco ? '' : ' hidden') + '>' + esc(d.balanco ? d.balanco.texto : '') + '</div></section></div>';
+      ligarAbasSaude(tela);
+      var recarregar = function () { var n = novo(tela); diarioComida(n, inicio); };
+      var f = $('[data-comer]', tela);
+      f.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var b = $('button', f); b.disabled = true; b.textContent = 'Calculando...';
+        api('comida_adicionar', { descricao: f.desc.value, data: f.data.value }).then(function (r) { recompensa(r, b); recarregar(); })
+          .catch(function () { b.disabled = false; b.textContent = 'Registrar'; });
+      });
+      $$('[data-del-comida]', tela).forEach(function (b) { b.addEventListener('click', function () { api('comida_excluir', { id: +b.dataset.delComida }).then(recarregar); }); });
+      $$('[data-sem]', tela).forEach(function (b) { b.addEventListener('click', function () { diarioComida(novo(tela), somaDias(inicio, +b.dataset.sem)); }); });
+      var fm = $('[data-metas]', tela);
+      fm.addEventListener('submit', function (e) { e.preventDefault(); api('metas_salvar', { kcal: +fm.kcal.value, proteina: +fm.prot.value }).then(function () { toast('Metas salvas.'); recarregar(); }); });
+      var bb = $('[data-balanco]', tela);
+      bb.addEventListener('click', function () {
+        bb.disabled = true; bb.textContent = 'Jarvis analisando a semana...';
+        api('comida_balanco', { inicio: inicio }).then(function (r) { var o = $('[data-bal]', tela); o.hidden = false; o.textContent = r.texto; })
+          .catch(function () {}).then(function () { bb.disabled = false; bb.innerHTML = ico('jarvis') + ' Balanço da semana'; });
+      });
+    });
+  }
 
   function graficoPeso(p) {
     if (p.length < 2) return '<p class="vazio">Registre pelo menos 2 pesagens para ver o gráfico.</p>';
@@ -478,6 +554,75 @@
     });
   }
 
+  // ================================================================ Jardim
+  var ESPECIES = [
+    { nome: 'Carvalho', copa: ['#2f7d32', '#43a047', '#1b5e20'], fruto: '#e53935', tronco: '#6d4c41' },
+    { nome: 'Cerejeira', copa: ['#f48fb1', '#f8bbd0', '#ec407a'], fruto: '#ffffff', tronco: '#5d4037' },
+    { nome: 'Ipê-amarelo', copa: ['#fbc02d', '#ffee58', '#f57f17'], fruto: '#fff59d', tronco: '#6d4c41' },
+    { nome: 'Pinheiro', copa: ['#1b5e20', '#2e7d32', '#0d3b12'], fruto: '#8d6e63', tronco: '#4e342e' },
+    { nome: 'Jabuticabeira', copa: ['#388e3c', '#66bb6a', '#1b5e20'], fruto: '#4a148c', tronco: '#8d6e63' },
+    { nome: 'Árvore-cristal', copa: ['#26c6da', '#80deea', '#00838f'], fruto: '#ffffff', tronco: '#455a64' }
+  ];
+  var ESTAGIOS = ['Terra preparada', 'Semente', 'Broto', 'Muda', 'Muda forte', 'Árvore jovem', 'Árvore', 'Árvore lendária'];
+  function arvoreSvg(estagio, especie, semente) {
+    var e = ESPECIES[especie % ESPECIES.length], px = [], W = 24, H = 24;
+    var p = function (x, y, c, w, h) { px.push('<rect x="' + x + '" y="' + y + '" width="' + (w || 1) + '" height="' + (h || 1) + '" fill="' + c + '"/>'); };
+    // chão
+    p(0, 21, '#5d4037', W, 3); p(0, 21, '#795548', W, 1);
+    if (estagio === 0) { p(9, 20, '#4e342e', 6, 1); }
+    if (estagio === 1) { p(11, 20, '#a1887f', 2, 1); p(11, 19, '#8d6e63', 2, 1); }
+    if (estagio >= 2 && estagio <= 4) {
+      var h = estagio === 2 ? 3 : estagio === 3 ? 6 : 9;
+      p(11, 21 - h, '#558b2f', 1, h);
+      p(9, 21 - h, '#7cb342', 2, 1); p(12, 21 - h + 1, '#7cb342', 2, 1);
+      if (estagio >= 3) { p(8, 21 - h + 3, '#8bc34a', 3, 1); p(12, 21 - h + 4, '#8bc34a', 3, 1); }
+      if (estagio === 4) { p(9, 21 - h - 1, '#9ccc65', 5, 2); }
+    }
+    if (estagio >= 5) {
+      var grande = estagio >= 6;
+      var topo = grande ? 2 : 6, tronco = grande ? 3 : 2;
+      p(12 - Math.floor(tronco / 2), 13, e.tronco, tronco, 8);
+      if (e.nome === 'Pinheiro') {
+        for (var i = 0; i < (grande ? 5 : 4); i++) { var w = 3 + i * 3; p(12 - Math.floor(w / 2), topo + i * 2, e.copa[i % 2 ? 1 : 0], w, 3); }
+      } else {
+        var r = grande ? 8 : 6, cx = 12, cy = topo + r;
+        for (var y = -r; y <= r; y++) for (var x = -r; x <= r; x++) {
+          var d = x * x + y * y;
+          if (d <= r * r - (grande ? 6 : 3)) p(cx + x, cy + y - 1, ((x * 7 + y * 13 + semente) % 5 === 0) ? e.copa[2] : (y < -2 ? e.copa[1] : e.copa[0]));
+        }
+      }
+      if (estagio === 7) {
+        [[7, 6], [15, 5], [10, 10], [16, 11], [6, 12], [13, 8], [9, 4]].forEach(function (f) { p(f[0], f[1], e.fruto, 2, 2); });
+        p(18, 1, '#ffd23f'); p(4, 3, '#ffd23f'); p(20, 7, '#ffd23f');
+      }
+    }
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" shape-rendering="crispEdges">' + px.join('') + '</svg>';
+  }
+
+  TELAS.jardim = function (tela) {
+    tela = novo(tela);
+    api('jardim').then(function (d) {
+      var arv = d.arvores.slice().reverse(), atual = arv[0];
+      var est = function (a) { return Math.min(7, a.regados); };
+      var cena = arv.slice(0, 12).reverse();
+      var larg = Math.max(12, cena.length) * 24;
+      var estrelas = '';
+      for (var i = 0; i < 40; i++) estrelas += '<rect x="' + ((i * 37) % larg) + '" y="' + ((i * 17) % 50) + '" width="1" height="1" fill="#fff" opacity="' + (.3 + (i % 5) / 8) + '"/>';
+      tela.innerHTML = '<div class="cabeca-pagina"><div><h1>Meu Jardim</h1><p>Cada semana planta uma árvore: o seu cérebro. Todo dia com pelo menos <strong>' + d.meta + ' XP</strong> aduba a árvore. Com 7 dias, ela fica lendária.</p></div></div>' +
+        '<section class="jardim"><svg class="cena" viewBox="0 0 ' + larg + ' 96" shape-rendering="crispEdges">' + estrelas +
+        '<rect x="' + (larg - 30) + '" y="8" width="10" height="10" fill="#fff4c2"/><rect x="' + (larg - 27) + '" y="8" width="7" height="7" fill="#1d2f5a"/>' +
+        cena.map(function (a, i) { return '<svg x="' + (i * 24) + '" y="42" width="24" height="54" viewBox="0 0 24 24" preserveAspectRatio="xMidYMax meet">' + arvoreSvg(est(a), a.semana, a.semana).replace(/^<svg[^>]*>|<\/svg>$/g, '') + '</svg>'; }).join('') +
+        '</svg></section>' +
+        '<div class="grade" style="margin-top:18px"><section class="painel c-5"><header><h2 class="titulo-pixel">Esta semana</h2><span class="selo lido">' + ESPECIES[atual.semana % ESPECIES.length].nome + '</span></header>' +
+        '<div class="arvore atual">' + arvoreSvg(est(atual), atual.semana, atual.semana) + '<strong>' + ESTAGIOS[est(atual)] + '</strong>' +
+        '<div class="gotas">' + atual.dias.map(function (x) { return '<i class="' + (x.regado ? 'on' : '') + (x.futuro ? ' futuro' : '') + '" title="' + br(x.data) + ': ' + x.xp + ' XP"></i>'; }).join('') + '</div>' +
+        '<p class="mini">' + atual.regados + ' de 7 dias adubados</p></div></section>' +
+        '<section class="painel c-7"><header><h2 class="titulo-pixel">Floresta</h2><span class="mini">' + arv.length + ' árvore(s)</span></header><div class="arvores">' +
+        arv.map(function (a, i) { return '<div class="arvore ' + (i === 0 ? 'atual' : '') + '">' + arvoreSvg(est(a), a.semana, a.semana) + '<strong>' + br(a.inicio) + '</strong><div class="mini">' + ESPECIES[a.semana % ESPECIES.length].nome + ' · ' + ESTAGIOS[est(a)] + '</div></div>'; }).join('') +
+        '</div></section></div>';
+    });
+  };
+
   TELAS.jarvis = function (tela) {
     tela = novo(tela);
     api('chat').then(function (d) {
@@ -509,35 +654,54 @@
     tela = novo(tela);
     api('jogo').then(function (d) {
       atualizarHud(d.jogo);
-      var eq = d.jogo.equipado, grupos = [['tema', 'Temas'], ['pet', 'Mascotes'], ['titulo', 'Títulos'], ['efeito', 'Efeitos']];
-      var amostras = { 'tema-hud': ['#060b14', '#00e5ff', '#ffb300'], 'tema-gameboy': ['#0f380f', '#306230', '#9bbc0f'], 'tema-synthwave': ['#12002b', '#ff40c4', '#29f0ff'], 'tema-matrix': ['#000', '#00ff41', '#b6ff00'], 'tema-pergaminho': ['#2a1a10', '#ead7b0', '#8b1e1e'] };
-      tela.innerHTML = '<div class="cabeca-pagina"><div><h1>Loja</h1><p>Gaste as moedas que você ganha completando missões. Você tem <strong style="color:var(--moeda)">' + d.jogo.moedas + '</strong> moedas.</p></div></div>' +
+      var eq = d.jogo.equipado, pets = eq.pets || [], grupos = [['tema', 'Temas'], ['pet', 'Mascotes'], ['titulo', 'Títulos'], ['efeito', 'Efeitos']];
+      var amostras = { 'tema-hud': ['#060b14', '#00e5ff', '#ffb300'], 'tema-gameboy': ['#0f380f', '#306230', '#9bbc0f'], 'tema-synthwave': ['#12002b', '#ff40c4', '#29f0ff'], 'tema-matrix': ['#000', '#00ff41', '#b6ff00'], 'tema-pergaminho': ['#2a1a10', '#ead7b0', '#8b1e1e'],
+        'tema-abismo': ['#000', '#111', '#fff'], 'tema-neon': ['#07070d', '#fcee0a', '#02d7f2'], 'tema-manga': ['#1a0b2e', '#f0c83c', '#ff4fa3'], 'tema-halloween': ['#120a12', '#ff7a1a', '#a663ff'], 'tema-misterio': ['#0a1210', '#c4a05a', '#5fd0b0'] };
+      var temProprio = d.itens.some(function (i) { return i.id === 'pet-proprio' && i.possui; });
+      var cartao = function (i, g) {
+        var ativo = g === 'efeito' ? !!eq[i.id] : g === 'pet' ? pets.indexOf(i.id) >= 0 : eq[g] === i.id;
+        var vit = g === 'tema' ? '<div class="amostra-tema">' + (amostras[i.id] || []).map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</div>'
+          : g === 'pet' ? (i.id === 'pet-proprio' ? '<span class="mini">suas imagens</span>' : petSvg(i.id))
+          : '<span class="titulo-pixel">' + esc(i.nome) + '</span>';
+        var acao;
+        if (!i.possui) acao = '<button class="btn cheio pequeno" data-comprar="' + i.id + '"' + (d.jogo.moedas < i.preco ? ' disabled' : '') + '>Comprar · ' + i.preco + '</button>';
+        else if (i.id === 'pet-proprio') acao = '<label class="btn pequeno">Enviar imagem<input type="file" accept="image/png,image/gif,image/webp,image/jpeg" hidden data-pet-arquivo></label>';
+        else if (g === 'tema' || g === 'titulo') acao = ativo ? '<button class="btn pequeno" disabled>Em uso</button>' : '<button class="btn pequeno" data-equipar="' + i.id + '">Usar</button>';
+        else acao = '<button class="btn pequeno" data-equipar="' + i.id + '" data-ligar="' + (ativo ? 0 : 1) + '">' + (ativo ? (g === 'pet' ? 'Guardar' : 'Desligar') : (g === 'pet' ? 'Soltar' : 'Ligar')) + '</button>';
+        return '<div class="produto ' + (ativo ? 'equipado' : '') + '"><div class="vitrine">' + vit + '</div><strong>' + esc(i.nome) + '</strong><span class="mini">' + esc(i.descricao) + '</span>' +
+          '<div class="linha" style="justify-content:space-between">' + (i.possui ? '<span class="selo lido">Seu</span>' : '<span class="preco">' + i.preco + ' 🪙</span>') + acao + '</div></div>';
+      };
+      tela.innerHTML = '<div class="cabeca-pagina"><div><h1>Loja</h1><p>Gaste as moedas das missões. Você tem <strong style="color:var(--moeda)">' + d.jogo.moedas + '</strong> moedas. Até 3 mascotes andam juntos.</p></div></div>' +
         grupos.map(function (g) {
+          var extra = '';
+          if (g[0] === 'pet' && temProprio) {
+            extra = '<h3 class="titulo-pixel" style="margin:16px 0 10px">Meus mascotes</h3>' + (d.pets_proprios.length ? '<div class="loja">' + d.pets_proprios.map(function (f) {
+              var id = 'proprio:' + f, on = pets.indexOf(id) >= 0;
+              return '<div class="produto ' + (on ? 'equipado' : '') + '"><div class="vitrine">' + petImg(id) + '</div><div class="linha" style="justify-content:space-between">' +
+                '<button class="btn pequeno" data-equipar="' + esc(id) + '" data-ligar="' + (on ? 0 : 1) + '">' + (on ? 'Guardar' : 'Soltar') + '</button><button class="btn-ico" data-pet-apagar="' + esc(f) + '" aria-label="Apagar">' + ico('lixo') + '</button></div></div>';
+            }).join('') + '</div>' : '<p class="mini">Envie imagens PNG ou GIF (de preferência com fundo transparente) no cartão "Meus mascotes".</p>');
+          }
           return '<section class="painel" style="margin-bottom:16px"><header><h2 class="titulo-pixel">' + g[1] + '</h2></header><div class="loja">' +
-            d.itens.filter(function (i) { return i.tipo === g[0]; }).map(function (i) {
-              var ativo = g[0] === 'efeito' ? !!eq[i.id] : eq[g[0]] === i.id;
-              var vit = g[0] === 'tema' ? '<div class="amostra-tema">' + amostras[i.id].map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') + '</div>'
-                : g[0] === 'pet' ? (i.id === 'pet-proprio' ? (d.tem_pet_proprio ? '<img src="api.php?r=pet_imagem" alt="">' : '<span class="mini">sua imagem</span>') : petSvg(i.id))
-                : '<span class="titulo-pixel">' + esc(i.nome) + '</span>';
-              var acao = !i.possui ? '<button class="btn cheio pequeno" data-comprar="' + i.id + '"' + (d.jogo.moedas < i.preco ? ' disabled' : '') + '>Comprar · ' + i.preco + '</button>'
-                : ativo ? '<button class="btn pequeno" data-equipar="' + (g[0] === 'pet' ? '' : i.id) + '" data-desligar="' + (g[0] === 'efeito' ? 1 : 0) + '"' + (g[0] === 'tema' || g[0] === 'titulo' ? ' disabled' : '') + '>' + (g[0] === 'tema' || g[0] === 'titulo' ? 'Em uso' : 'Desligar') + '</button>'
-                : '<button class="btn pequeno" data-equipar="' + i.id + '">Usar</button>';
-              return '<div class="produto ' + (ativo ? 'equipado' : '') + '"><div class="vitrine">' + vit + '</div><strong>' + esc(i.nome) + '</strong><span class="mini">' + esc(i.descricao) + '</span>' +
-                '<div class="linha" style="justify-content:space-between">' + (i.possui ? '<span class="selo lido">Seu</span>' : '<span class="preco">' + i.preco + ' 🪙</span>') + acao + '</div>' +
-                (i.id === 'pet-proprio' && i.possui ? '<label class="btn pequeno">Enviar imagem<input type="file" accept="image/png,image/gif,image/webp,image/jpeg" hidden data-pet-arquivo></label>' : '') + '</div>';
-            }).join('') + '</div></section>';
+            d.itens.filter(function (i) { return i.tipo === g[0]; }).map(function (i) { return cartao(i, g[0]); }).join('') + '</div>' + extra + '</section>';
         }).join('') +
         '<section class="painel"><header><h2 class="titulo-pixel">Últimos XP</h2></header><ul class="lista">' +
         (d.historico.length ? d.historico.map(function (h) { return '<li class="item"><div class="item-titulo">' + esc(h.motivo) + '<small>' + br(h.criado_em) + ' ' + h.criado_em.slice(11, 16) + '</small></div><span class="xp-tag">+' + h.pontos + '</span></li>'; }).join('') : '<li class="vazio">Complete uma missão para ganhar XP.</li>') + '</ul></section>';
+      var recarregar = function (r) { if (r && r.jogo) atualizarHud(r.jogo); TELAS.loja(tela); };
       tela.addEventListener('click', function (e) {
-        var c = e.target.closest('[data-comprar]'), q = e.target.closest('[data-equipar]');
-        if (c) api('comprar', { item: c.dataset.comprar }).then(function () { bip([880, 1175]); toast('Item comprado!'); return api('equipar', { item: c.dataset.comprar }); }).then(function (r) { atualizarHud(r.jogo); TELAS.loja(tela); });
-        else if (q) api('equipar', { item: q.dataset.equipar, ligar: q.dataset.desligar !== '1' }).then(function (r) { atualizarHud(r.jogo); TELAS.loja(tela); });
+        var c = e.target.closest('[data-comprar]'), q = e.target.closest('[data-equipar]'), x = e.target.closest('[data-pet-apagar]');
+        if (c) {
+          var item = c.dataset.comprar;
+          api('comprar', { item: item }).then(function (r) {
+            bip([880, 1175]); toast('Item comprado!');
+            return item === 'pet-proprio' ? r : api('equipar', { item: item });
+          }).then(recarregar);
+        } else if (q) api('equipar', { item: q.dataset.equipar, ligar: q.dataset.ligar !== '0' }).then(recarregar);
+        else if (x && confirm('Apagar este mascote?')) api('pet_apagar', { arquivo: x.dataset.petApagar }).then(recarregar);
       });
       var arq = $('[data-pet-arquivo]', tela);
       if (arq) arq.addEventListener('change', function () {
         var fd = new FormData(); fd.append('imagem', arq.files[0]);
-        api('pet_enviar', fd).then(function () { toast('Mascote atualizado!'); return api('equipar', { item: 'pet-proprio' }); }).then(function (r) { atualizarHud(r.jogo); aplicarPet(); TELAS.loja(tela); });
+        api('pet_enviar', fd).then(function (r) { toast('Mascote solto na tela!'); recarregar(r); });
       });
     });
   };
@@ -720,7 +884,7 @@
   function telaLogin() {
     clearInterval(playerTimer);
     var instalar = !estado.instalado;
-    $('#pet').className = '';
+    $('#pet').innerHTML = '';
     $('#app').className = '';
     $('#app').innerHTML = '<div class="login"><form class="painel"><span class="boot-logo">J.A.R.V.I.S</span>' +
       '<p class="suave">' + (instalar ? 'Primeiro acesso: crie a sua senha (mínimo 8 caracteres).' : 'Identifique-se, senhor.') + '</p>' +

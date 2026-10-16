@@ -298,7 +298,7 @@ try {
                 $itens[] = ['id' => $chave, 'tipo' => $tipo, 'nome' => $nome, 'preco' => $preco, 'descricao' => $desc, 'possui' => possui($chave)];
             }
             $historico = db()->query('SELECT pontos, motivo, criado_em FROM xp ORDER BY id DESC LIMIT 30')->fetchAll();
-            responder(['jogo' => jogo_status(), 'itens' => $itens, 'historico' => $historico, 'tem_pet_proprio' => (bool) glob(dirname(cfg('banco')) . '/pet.*')]);
+            responder(['jogo' => jogo_status(), 'itens' => $itens, 'historico' => $historico, 'pets_proprios' => pets_proprios()]);
 
         case 'comprar':
             comprar(texto('item', 40));
@@ -309,6 +309,9 @@ try {
             responder(['ok' => true, 'jogo' => jogo_status()]);
 
         case 'pet_enviar':
+            if (!possui('pet-proprio')) {
+                erro('Compre "Meus mascotes" na loja primeiro.');
+            }
             $f = $_FILES['imagem'] ?? null;
             if (!$f || $f['error'] !== UPLOAD_ERR_OK) {
                 erro('Escolha uma imagem.');
@@ -316,28 +319,127 @@ try {
             if ($f['size'] > 3 * 1024 * 1024) {
                 erro('Use uma imagem de até 3 MB.');
             }
+            if (count(pets_proprios()) >= 30) {
+                erro('Limite de 30 mascotes. Apague algum antes.');
+            }
             $info = @getimagesize($f['tmp_name']);
             $ext = [IMAGETYPE_PNG => 'png', IMAGETYPE_GIF => 'gif', IMAGETYPE_WEBP => 'webp', IMAGETYPE_JPEG => 'jpg'][$info[2] ?? 0] ?? '';
             if ($ext === '') {
                 erro('Envie PNG, GIF, WEBP ou JPG.');
             }
-            foreach (glob(dirname(cfg('banco')) . '/pet.*') ?: [] as $velho) {
-                @unlink($velho);
+            $nome = 'pet_' . bin2hex(random_bytes(5)) . '.' . $ext;
+            move_uploaded_file($f['tmp_name'], pasta_pets() . '/' . $nome);
+            equipar('proprio:' . $nome);
+            responder(['ok' => true, 'arquivo' => $nome, 'jogo' => jogo_status()]);
+
+        case 'pet_apagar':
+            $nome = basename(texto('arquivo', 80));
+            if ($nome && is_file(pasta_pets() . '/' . $nome)) {
+                equipar('proprio:' . $nome, false);
+                @unlink(pasta_pets() . '/' . $nome);
             }
-            move_uploaded_file($f['tmp_name'], dirname(cfg('banco')) . '/pet.' . $ext);
-            responder(['ok' => true]);
+            responder(['ok' => true, 'jogo' => jogo_status()]);
 
         case 'pet_imagem':
-            $arq = (glob(dirname(cfg('banco')) . '/pet.*') ?: [])[0] ?? '';
-            if (!$arq) {
-                http_response_code(404);
-                exit;
+            $arq = pasta_pets() . '/' . basename((string) ($_GET['a'] ?? ''));
+            if (!is_file($arq)) {
+                $velho = (glob(dirname(cfg('banco')) . '/pet.*') ?: [])[0] ?? '';
+                if (!$velho) {
+                    http_response_code(404);
+                    exit;
+                }
+                $arq = $velho;
             }
             $mime = ['png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', 'jpg' => 'image/jpeg'][pathinfo($arq, PATHINFO_EXTENSION)] ?? 'application/octet-stream';
             header('Content-Type: ' . $mime);
-            header('Cache-Control: private, max-age=86400');
+            header('Cache-Control: private, max-age=604800');
             readfile($arq);
             exit;
+
+        // -------- Diário de comida (estimativa pela IA)
+        case 'comidas':
+            $ini = data_valida($_GET['inicio'] ?? '') ?: date('Y-m-d', strtotime('monday this week'));
+            $fim = date('Y-m-d', strtotime($ini . ' +6 days'));
+            $st = db()->prepare('SELECT * FROM comidas WHERE data BETWEEN ? AND ? ORDER BY data, id');
+            $st->execute([$ini, $fim]);
+            responder([
+                'inicio' => $ini, 'fim' => $fim, 'comidas' => $st->fetchAll(),
+                'meta_kcal' => (int) ajuste('meta_kcal', '2200'), 'meta_proteina' => (int) ajuste('meta_proteina', '160'),
+                'balanco' => json_decode(ajuste('balanco:' . $ini, 'null'), true),
+            ]);
+
+        case 'comida_adicionar':
+            $desc = texto('descricao', 600);
+            if ($desc === '') {
+                erro('Escreva o que você comeu.');
+            }
+            $d = data_valida(entrada()['data'] ?? '') ?: hoje();
+            $pedido = "Estime a nutrição desta refeição, em porções típicas brasileiras quando a quantidade não for dita: \"$desc\".\n"
+                . 'Responda só JSON: {"itens":[{"nome":"...","quantidade":"...","kcal":0,"proteina":0,"carbo":0,"gordura":0}],'
+                . '"total":{"kcal":0,"proteina":0,"carbo":0,"gordura":0}}. Números em kcal e gramas, sem texto fora do JSON.';
+            $bruto = ia_gerar('Você é um assistente de nutrição que estima calorias e macronutrientes de forma realista. Responda apenas JSON válido.', [['papel' => 'user', 'texto' => $pedido]], 0.2, true);
+            $j = json_decode(trim(preg_replace('/^```(json)?|```$/m', '', $bruto)), true);
+            if (!is_array($j) || !isset($j['total'])) {
+                erro('Não entendi a resposta da IA. Tente descrever de outro jeito.');
+            }
+            $t = $j['total'];
+            db()->prepare('INSERT INTO comidas (data, descricao, itens, kcal, proteina, carbo, gordura, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+                ->execute([$d, $desc, json_encode($j['itens'] ?? [], JSON_UNESCAPED_UNICODE), (float) ($t['kcal'] ?? 0), (float) ($t['proteina'] ?? 0), (float) ($t['carbo'] ?? 0), (float) ($t['gordura'] ?? 0), agora()]);
+            $id = (int) db()->lastInsertId();
+            $ganho = xp_ganhar(2, 'Registrou o que comeu', 'comida:' . $id);
+            responder(['ok' => true, 'xp' => $ganho, 'jogo' => jogo_status()]);
+
+        case 'comida_excluir':
+            xp_perder('comida:' . $id);
+            db()->prepare('DELETE FROM comidas WHERE id = ?')->execute([$id]);
+            responder(['ok' => true]);
+
+        case 'metas_salvar':
+            salvar_ajuste('meta_kcal', (string) max(1000, min(6000, (int) (entrada()['kcal'] ?? 2200))));
+            salvar_ajuste('meta_proteina', (string) max(30, min(400, (int) (entrada()['proteina'] ?? 160))));
+            responder(['ok' => true]);
+
+        case 'comida_balanco':
+            $ini = data_valida(entrada()['inicio'] ?? '') ?: date('Y-m-d', strtotime('monday this week'));
+            $fim = date('Y-m-d', strtotime($ini . ' +6 days'));
+            $st = db()->prepare('SELECT data, descricao, kcal, proteina, carbo, gordura FROM comidas WHERE data BETWEEN ? AND ? ORDER BY data, id');
+            $st->execute([$ini, $fim]);
+            $linhas = $st->fetchAll();
+            if (!$linhas) {
+                erro('Registre o que você comeu antes de pedir o balanço.');
+            }
+            $txt = '';
+            foreach ($linhas as $l) {
+                $txt .= date('d/m', strtotime($l['data'])) . ': ' . $l['descricao'] . ' (~' . round($l['kcal']) . ' kcal, ' . round($l['proteina']) . " g prot.)\n";
+            }
+            $pedido = 'Metas diárias: ' . ajuste('meta_kcal', '2200') . ' kcal e ' . ajuste('meta_proteina', '160') . " g de proteína (objetivo: emagrecer mantendo massa).\nO que comi nesta semana:\n$txt\n"
+                . 'Faça um balanço curto (até 180 palavras): média de calorias e proteína nos dias registrados, se está saudável e equilibrado, '
+                . 'o que está bom, 3 ajustes práticos para a próxima semana. Lembre que são estimativas e que não substitui nutricionista. Não use markdown com #.';
+            $resposta = ia_gerar(ia_instrucao_jarvis(), [['papel' => 'user', 'texto' => $pedido]], 0.5);
+            salvar_ajuste('balanco:' . $ini, json_encode(['texto' => $resposta, 'em' => agora()], JSON_UNESCAPED_UNICODE));
+            responder(['ok' => true, 'texto' => $resposta]);
+
+        // -------- Jardim (cada semana é uma árvore; cada dia bem cumprido aduba)
+        case 'jardim':
+            $porDia = [];
+            foreach (db()->query("SELECT substr(criado_em, 1, 10) AS dia, SUM(pontos) AS xp FROM xp GROUP BY dia") as $l) {
+                $porDia[$l['dia']] = (int) $l['xp'];
+            }
+            $meta = (int) ajuste('jardim_meta', '40');
+            $primeiro = db()->query('SELECT MIN(criado_em) FROM xp')->fetchColumn() ?: agora();
+            $semana = strtotime('monday this week', strtotime(substr($primeiro, 0, 10)));
+            $fimSemana = strtotime('monday this week');
+            $arvores = [];
+            while ($semana <= $fimSemana) {
+                $dias = [];
+                for ($i = 0; $i < 7; $i++) {
+                    $dia = date('Y-m-d', strtotime("+$i days", $semana));
+                    $dias[] = ['data' => $dia, 'xp' => $porDia[$dia] ?? 0, 'regado' => ($porDia[$dia] ?? 0) >= $meta, 'futuro' => $dia > hoje()];
+                }
+                $arvores[] = ['inicio' => date('Y-m-d', $semana), 'semana' => (int) date('W', $semana), 'regados' => count(array_filter($dias, function ($d) { return $d['regado']; })), 'dias' => $dias];
+                $semana = strtotime('+7 days', $semana);
+            }
+            responder(['arvores' => $arvores, 'meta' => $meta]);
 
         // -------- Ajustes
         case 'ajustes':

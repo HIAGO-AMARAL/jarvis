@@ -286,3 +286,110 @@ label.campo { display: flex; flex-direction: column; gap: 6px; font-size: 13px; 
   #pet.ativo { animation: none; left: 12px; }
 }
 .btn svg { width: 18px; height: 18px; flex: none; }
+
+/* ==========================================================================
+   Versão 2: temas novos, jardim, diário de comida e vários mascotes
+   ========================================================================== */
+[data-tema="tema-abismo"] {
+  --fundo: #000; --fundo-2: #070707; --painel: #0b0b0b; --painel-2: #111;
+  --borda: #222; --borda-forte: #3a3a3a; --texto: #f2f2f2; --texto-2: #9a9a9a; --texto-3: #5c5c5c;
+  --acento: #ffffff; --acento-2: #bdbdbd; --acento-esc: #444; --ok: #e6e6e6; --perigo: #ff5c5c; --xp: #ffffff; --moeda: #d9d9d9;
+  --brilho: 0 0 14px rgba(255, 255, 255, .08); --grade: transparent;
+}
+[data-tema="tema-abismo"] .nav-item.ativo { color: #000; }
+[data-tema="tema-neon"] {
+  --fundo: #07070d; --fundo-2: #0d0d18; --painel: rgba(16, 16, 28, .9); --painel-2: #15152a;
+  --borda: rgba(252, 238, 10, .22); --borda-forte: rgba(252, 238, 10, .7); --texto: #f4f4ff; --texto-2: #9ea0c8; --texto-3: #5d5f86;
+  --acento: #fcee0a; --acento-2: #02d7f2; --acento-esc: #8a8100; --ok: #02d7f2; --perigo: #ff003c; --xp: #fcee0a; --moeda: #fcee0a;
+  --brilho: 0 0 18px rgba(252, 238, 10, .3); --grade: rgba(2, 215, 242, .05); --raio: 0;
+}
+[data-tema="tema-neon"] .painel { clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px)); }
+[data-tema="tema-neon"] .cabeca-pagina h1 { animation: glitch 4s steps(1) infinite; }
+@keyframes glitch { 0%, 92%, 100% { text-shadow: none; transform: none; } 93% { text-shadow: 3px 0 #ff003c, -3px 0 #02d7f2; transform: translateX(2px); } 95% { text-shadow: -3px 0 #ff003c, 3px 0 #02d7f2; transform: translateX(-2px); } }
+[data-tema="tema-manga"] {
+  --fundo: #1a0b2e; --fundo-2: #230f3d; --painel: rgba(42, 16, 70, .9); --painel-2: #32145a;
+  --borda: rgba(240, 200, 60, .3); --borda-forte: #f0c83c; --texto: #fff4d6; --texto-2: #d8b8f0; --texto-3: #9a74bd;
+  --acento: #f0c83c; --acento-2: #ff4fa3; --acento-esc: #8a6d10; --ok: #7dff9b; --perigo: #ff4f6e; --xp: #f0c83c; --moeda: #f0c83c;
+  --brilho: 0 0 20px rgba(240, 200, 60, .35); --grade: transparent;
+}
+[data-tema="tema-manga"] body { background: radial-gradient(circle at 30% 20%, #3a1660, #12061f 70%) fixed; }
+[data-tema="tema-manga"] body::before {
+  content: 'ゴ ゴ ゴ ゴ'; position: fixed; right: 3vw; top: 18vh; z-index: -1; pointer-events: none;
+  font: 900 9vw/1 'Chakra Petch', sans-serif; color: rgba(240, 200, 60, .13); writing-mode: vertical-rl; letter-spacing: 2vw;
+  animation: ameaca 1.6s ease-in-out infinite;
+}
+@keyframes ameaca { 50% { transform: translate(-6px, 4px) scale(1.03); color: rgba(255, 79, 163, .09); } }
+[data-tema="tema-halloween"] {
+  --fundo: #120a12; --fundo-2: #1c0f1c; --painel: rgba(32, 16, 32, .9); --painel-2: #2a142a;
+  --borda: rgba(255, 122, 26, .28); --borda-forte: #ff7a1a; --texto: #ffeedd; --texto-2: #c7a3c7; --texto-3: #8a6a8a;
+  --acento: #ff7a1a; --acento-2: #a663ff; --acento-esc: #8a3d00; --ok: #8cff5a; --perigo: #ff3b3b; --xp: #ffb347; --moeda: #ffb347;
+  --brilho: 0 0 20px rgba(255, 122, 26, .35); --grade: transparent;
+}
+[data-tema="tema-halloween"] body { background: radial-gradient(circle at 80% 8%, #ffe7a3 0 3%, transparent 3.3%), linear-gradient(#1a0d22, #120a12) fixed; }
+[data-tema="tema-halloween"] body::before, [data-tema="tema-halloween"] body::after {
+  content: ''; position: fixed; z-index: -1; pointer-events: none; width: 26px; height: 12px; top: 22vh;
+  background: #000; clip-path: polygon(0 30%, 20% 0, 35% 40%, 50% 20%, 65% 40%, 80% 0, 100% 30%, 70% 70%, 50% 100%, 30% 70%);
+  animation: morcego 14s linear infinite;
+}
+[data-tema="tema-halloween"] body::after { top: 34vh; animation-duration: 19s; animation-delay: -6s; transform: scale(.7); }
+@keyframes morcego { from { left: -40px; } 50% { margin-top: -40px; } to { left: 105vw; } }
+[data-tema="tema-misterio"] {
+  --fundo: #0a1210; --fundo-2: #0f1a17; --painel: rgba(18, 30, 26, .92); --painel-2: #162520;
+  --borda: rgba(196, 160, 90, .25); --borda-forte: #c4a05a; --texto: #ece3cf; --texto-2: #a9b8a6; --texto-3: #6c7d6a;
+  --acento: #c4a05a; --acento-2: #5fd0b0; --acento-esc: #6b5426; --ok: #5fd0b0; --perigo: #d9534f; --xp: #e8c873; --moeda: #e8c873;
+  --brilho: 0 0 16px rgba(196, 160, 90, .25); --grade: transparent;
+}
+[data-tema="tema-misterio"] body { background: linear-gradient(transparent 60%, rgba(0, 0, 0, .6)), radial-gradient(ellipse at 50% 120%, #1c3329, #0a1210 60%) fixed; }
+[data-tema="tema-misterio"] body::before {
+  content: '◬ ᚠ ✶ ᛟ ◭ ⌖ ᚦ ✧ ᛉ'; position: fixed; left: 0; right: 0; bottom: 4vh; z-index: -1; text-align: center; pointer-events: none;
+  font-size: 5vw; letter-spacing: 3vw; color: rgba(196, 160, 90, .06); animation: cifra 6s ease-in-out infinite;
+}
+@keyframes cifra { 50% { color: rgba(95, 208, 176, .1); } }
+[data-tema="tema-misterio"] .cabeca-pagina h1::after { content: ' ✶'; color: var(--acento-2); }
+
+/* ---------- Vários mascotes ---------- */
+#pet { width: auto; height: auto; display: block; left: 0; right: 0; bottom: 0; animation: none !important; }
+.mascote { position: fixed; bottom: 6px; left: 0; width: 60px; height: 60px; z-index: 30; pointer-events: none; animation: anda 28s linear infinite; }
+.mascote .corpo { width: 100%; height: 100%; animation: pula .5s steps(2) infinite; }
+.mascote svg, .mascote img { width: 100%; height: 100%; image-rendering: pixelated; object-fit: contain; display: block; }
+.mascote.m2 { animation-duration: 34s; animation-delay: -12s; }
+.mascote.m3 { animation-duration: 40s; animation-delay: -25s; }
+.mascote.feliz .corpo { animation: pula .18s steps(2) 8 !important; }
+.mascote.voa { bottom: auto; top: 18vh; animation-name: anda, onda; animation-duration: 22s, 3s; animation-timing-function: linear, ease-in-out; animation-iteration-count: infinite; }
+.mascote.voa .corpo { animation: bater .25s steps(2) infinite; }
+@keyframes onda { 50% { margin-top: 40px; } }
+@keyframes bater { 50% { transform: scaleY(.8); } }
+.mascote.flutua .corpo { animation: flutua 2.4s ease-in-out infinite; }
+.mascote.lento { animation-duration: 60s; }
+.mascote.lento .corpo { animation: pula 1.4s steps(2) infinite; }
+.mascote.gato { animation-name: anda-para; animation-duration: 36s; }
+@keyframes anda-para { 0% { transform: translateX(-70px); } 20%, 30% { transform: translateX(30vw); } 49.9% { transform: translateX(calc(100vw - 10px)); } 50% { transform: translateX(calc(100vw - 10px)) scaleX(-1); } 70%, 80% { transform: translateX(55vw) scaleX(-1); } 100% { transform: translateX(-70px) scaleX(-1); } }
+.mascote.abobora .corpo { animation: pula .8s cubic-bezier(.5, -0.5, .5, 1.5) infinite; }
+@media (max-width: 900px) {
+  .mascote { bottom: calc(72px + env(safe-area-inset-bottom)); width: 46px; height: 46px; }
+  .mascote.voa { bottom: auto; }
+}
+@media (prefers-reduced-motion: reduce) { .mascote { animation: none !important; left: 12px; } }
+
+/* ---------- Jardim ---------- */
+.jardim { position: relative; border: 2px solid var(--borda-forte); border-radius: var(--raio); overflow: hidden; background: linear-gradient(#0b1630 0%, #1d2f5a 55%, #2d5a2a 55.2%, #1f3f1d 100%); }
+.jardim svg.cena { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+.arvores { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.arvore { background: var(--fundo-2); border: 2px solid var(--borda); padding: 10px; border-radius: var(--raio); text-align: center; }
+.arvore.atual { border-color: var(--ok); box-shadow: 0 0 14px rgba(57, 255, 136, .25); }
+.arvore svg { width: 100%; height: 130px; image-rendering: pixelated; }
+.gotas { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+.gotas i { width: 12px; height: 12px; border: 2px solid var(--acento-2); }
+.gotas i.on { background: var(--acento-2); }
+.gotas i.futuro { opacity: .3; }
+
+/* ---------- Diário de comida ---------- */
+.barras-kcal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; align-items: end; height: 170px; position: relative; padding-top: 10px; }
+.barras-kcal .b { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; font-family: var(--fonte-hud); font-size: 16px; color: var(--texto-2); }
+.barras-kcal .b i { display: block; width: 70%; background: var(--acento); min-height: 2px; }
+.barras-kcal .b i.acima { background: var(--perigo); }
+.barras-kcal .meta { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--xp); }
+.barras-kcal .meta span { position: absolute; right: 0; top: -20px; font-family: var(--fonte-hud); color: var(--xp); font-size: 16px; }
+.macros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
+.macros div { background: var(--fundo-2); border: 2px solid var(--borda); padding: 8px; }
+.macros b { display: block; font-family: var(--fonte-hud); font-size: 26px; color: var(--acento); }

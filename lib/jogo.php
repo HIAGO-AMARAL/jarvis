@@ -98,11 +98,21 @@ function loja_itens(): array
         'tema-synthwave'  => ['tema', 'Synthwave', 300, 'Neon rosa e roxo, pôr do sol de fliperama.'],
         'tema-matrix'     => ['tema', 'Código Verde', 300, 'Chuva de caracteres verdes no fundo.'],
         'tema-pergaminho' => ['tema', 'Taverna', 400, 'Pergaminho e madeira, cara de RPG de mesa.'],
+        'tema-abismo'     => ['tema', 'Abismo', 200, 'Todo preto, só com detalhes em branco. Minimalista.'],
+        'tema-neon'       => ['tema', 'Neon City', 450, 'Cidade cyberpunk: amarelo elétrico, ciano e glitch.'],
+        'tema-manga'      => ['tema', 'Mangá Bizarro', 500, 'Roxo e dourado dramático, com o "ゴゴゴ" de suspense no fundo.'],
+        'tema-halloween'  => ['tema', 'Noite de Halloween', 350, 'Laranja de abóbora, roxo e morcegos voando.'],
+        'tema-misterio'   => ['tema', 'Mistério na Floresta', 450, 'Floresta à noite, símbolos cifrados e diário secreto.'],
         'pet-slime'       => ['pet', 'Gosminha', 200, 'Um slime que pula pela tela.'],
         'pet-robo'        => ['pet', 'Bit', 350, 'Robozinho que anda e pisca a antena.'],
         'pet-fantasma'    => ['pet', 'Bu', 250, 'Fantasminha que flutua e some de vez em quando.'],
         'pet-dragao'      => ['pet', 'Brasinha', 500, 'Dragãozinho que solta faísca quando você completa missão.'],
-        'pet-proprio'     => ['pet', 'Meu mascote', 100, 'Envie a sua própria imagem ou GIF (fica só no seu servidor).'],
+        'pet-abobora'     => ['pet', 'Abobrinha', 300, 'Abóbora de Halloween que pula e acende os olhos.'],
+        'pet-morcego'     => ['pet', 'Morceguinho', 300, 'Voa em zigue-zague pelo alto da tela.'],
+        'pet-gato'        => ['pet', 'Breu', 400, 'Gato preto que anda devagar e às vezes senta.'],
+        'pet-capivara'    => ['pet', 'Capivara Zen', 450, 'Anda bem devagar. Nada abala a capivara.'],
+        'pet-drone'       => ['pet', 'Drone K-9', 550, 'Drone cyberpunk que flutua e pisca o sensor.'],
+        'pet-proprio'     => ['pet', 'Meus mascotes', 100, 'Libera enviar as suas próprias imagens ou GIFs (ficam só no seu servidor).'],
         'titulo-aprendiz' => ['titulo', 'Aprendiz', 0, ''],
         'titulo-dev'      => ['titulo', 'Codificador', 100, ''],
         'titulo-bug'      => ['titulo', 'Caçador de Bugs', 250, ''],
@@ -116,7 +126,12 @@ function loja_itens(): array
 function equipado(): array
 {
     $e = json_decode(ajuste('equipado', ''), true) ?: [];
-    return array_merge(['tema' => 'tema-hud', 'pet' => '', 'titulo' => 'titulo-aprendiz', 'efeito-confete' => false, 'efeito-som' => false], $e);
+    $e = array_merge(['tema' => 'tema-hud', 'pets' => [], 'titulo' => 'titulo-aprendiz', 'efeito-confete' => false, 'efeito-som' => false], $e);
+    if (!empty($e['pet']) && !$e['pets']) {
+        $e['pets'] = [$e['pet']]; // versão 1 guardava um mascote só
+    }
+    unset($e['pet']);
+    return $e;
 }
 
 function possui(string $item): bool
@@ -152,15 +167,48 @@ function comprar(string $item): void
 function equipar(string $item, bool $ligar = true): void
 {
     $itens = loja_itens();
-    if ($item !== '' && !possui($item)) {
-        throw new RuntimeException('Compre o item antes de equipar.');
-    }
     $e = equipado();
-    $tipo = $item === '' ? 'pet' : $itens[$item][0];
+    // mascote próprio: "proprio:arquivo.png"
+    if (strpos($item, 'proprio:') === 0) {
+        if (!possui('pet-proprio') || !is_file(pasta_pets() . '/' . basename(substr($item, 8)))) {
+            throw new RuntimeException('Mascote não encontrado.');
+        }
+        $item = 'proprio:' . basename(substr($item, 8));
+        $tipo = 'pet';
+    } else {
+        if (!possui($item)) {
+            throw new RuntimeException('Compre o item antes de usar.');
+        }
+        $tipo = $itens[$item][0];
+    }
     if ($tipo === 'efeito') {
         $e[$item] = $ligar;
+    } elseif ($tipo === 'pet') {
+        $e['pets'] = array_values(array_diff($e['pets'], [$item]));
+        if ($ligar) {
+            $e['pets'][] = $item;
+            $e['pets'] = array_slice($e['pets'], -3); // até 3 mascotes andando juntos
+        }
     } else {
         $e[$tipo] = $item;
     }
     salvar_ajuste('equipado', json_encode($e));
+}
+
+function pasta_pets(): string
+{
+    $p = dirname(cfg('banco')) . '/pets';
+    if (!is_dir($p)) {
+        @mkdir($p, 0755, true);
+    }
+    return $p;
+}
+
+function pets_proprios(): array
+{
+    $lista = [];
+    foreach (glob(pasta_pets() . '/*.{png,gif,webp,jpg}', GLOB_BRACE) ?: [] as $f) {
+        $lista[] = basename($f);
+    }
+    return $lista;
 }
