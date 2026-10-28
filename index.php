@@ -3,14 +3,14 @@ header('Cache-Control: no-cache');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
-$v = '3';
+$v = '4';
 ?><!doctype html>
-<html lang="pt-BR" data-tema="tema-hud">
+<html lang="pt-BR" data-tema="tema-clean">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#060b14">
+<meta name="theme-color" content="#0b0f17">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Jarvis</title>
@@ -19,7 +19,7 @@ $v = '3';
 <link rel="apple-touch-icon" href="assets/icons/icone-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=Press+Start+2P&family=VT323&family=Chakra+Petch:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/app.css?v=<?= $v ?>">
 </head>
 <body>

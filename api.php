@@ -39,6 +39,11 @@ try {
     if ($metodo !== 'GET' && !hash_equals(csrf(), (string) ($_SERVER['HTTP_X_CSRF'] ?? ''))) {
         erro('Sessão expirada. Recarregue a página.', 403);
     }
+    try {
+        processar_caixa_claude();
+    } catch (Throwable $e) {
+        error_log('CAIXA CLAUDE: ' . $e->getMessage());
+    }
     if ($r === 'sync' && $metodo === 'POST') {
         responder(sincronizar((array) (entrada()['ops'] ?? [])));
     }

@@ -74,7 +74,11 @@
     // com fila pendente, a ação nova entra no fim dela, para manter a ordem
     if (corpo && offlineOk && (rede.offline || fila().length)) return enfileirar(nome, corpo);
     return pedir(rota, corpo, metodo).then(function (j) {
-      if (!corpo) LS.gravar('jv_c:' + rota, j);
+      if (!corpo) {
+        var copia = j;
+        if (j.avisos) { copia = Object.assign({}, j); delete copia.avisos; } // recado aparece uma vez só
+        LS.gravar('jv_c:' + rota, copia);
+      }
       return j;
     }, function (err) {
       if (!err.rede) throw err;
@@ -224,12 +228,35 @@
     ant: '<path d="M19 4L9 12l10 8zM4 4h3v16H4z" fill="currentColor"/>',
     esq: '<path d="M15 5l-7 7 7 7"/>',
     dir: '<path d="M9 5l7 7-7 7"/>',
-    moeda: '<rect x="6" y="3" width="12" height="18" fill="#ffc83d"/><rect x="3" y="6" width="18" height="12" fill="#ffc83d"/><rect x="10" y="7" width="4" height="10" fill="#b8860b"/>',
-    fogo: '<path d="M12 2h2v4h2v2h2v4h2v8H4v-8h2V8h2v4h2V6h2z" fill="#ff7a1a"/><path d="M10 14h4v6h-4z" fill="#ffd23f"/>',
-    raio: '<path d="M13 2L5 14h6l-2 8 10-13h-7z" fill="#ffd23f"/>',
+    moeda: '<circle cx="12" cy="12" r="8.5" fill="#fbbf24" stroke="#d97706" stroke-width="1.5"/><path d="M12 7.5v9M9.8 9.6c.4-1 1.3-1.4 2.3-1.4 1.3 0 2.2.7 2.2 1.7 0 2.4-4.6 1.4-4.6 3.9 0 1 .9 1.8 2.3 1.8 1 0 1.9-.5 2.3-1.4" stroke="#7c2d12" stroke-width="1.4"/>',
+    fogo: '<path d="M12 21.5c-4 0-6.5-2.6-6.5-6.2 0-3.4 2.4-5.3 3.6-8.3.5 1.6 1.4 2.6 2.4 3.1C12 7 13 4.4 15.2 2.5c-.2 3.3 3.3 6.2 3.3 11.1 0 4.7-2.6 7.9-6.5 7.9z" fill="#fb923c" stroke="none"/><path d="M12 21.5c-1.8 0-3-1.2-3-3 0-2.3 2-3.2 2.7-5 1.3 1 3.3 2.8 3.3 5 0 1.8-1.2 3-3 3z" fill="#fde047" stroke="none"/>',
+    raio: '<path d="M13.5 2.5L5.5 13.5h5.5l-1.5 8 8-11h-5.5z" fill="#a78bfa" stroke="none"/>',
     sair: '<path d="M15 4h4v16h-4M10 17l-5-5 5-5M5 12h11"/>',
     jardim: '<path d="M11 21v-7M6 14h12M12 3l6 6h-3l3 4H6l3-4H6z"/>'
   };
+  // ---------------------------------------------------------------- ícones animados do menu
+  // Cada ícone tem peças com classe própria; o CSS anima quando passa o mouse e quando a aba está ativa.
+  function navIco(rota) {
+    var dia = new Date().getDate();
+    var I = {
+      hoje: '<rect class="cal-folha" x="3.5" y="5" width="17" height="15.5" rx="3"/><path class="cal-topo" d="M3.5 9.5h17" /><path class="cal-argola" d="M8 3v4M16 3v4"/>' +
+        '<text class="cal-num" x="12" y="17.6" text-anchor="middle">' + dia + '</text>',
+      semana: '<path class="q-pergaminho" d="M6 4.5h10.5a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2H7.5a2 2 0 0 1-2-2V6"/><path class="q-pergaminho" d="M6 4.5a1.5 1.5 0 0 0-3 0V6h2.5"/>' +
+        '<g class="q-marca"><path d="M9.4 9.4a2.6 2.6 0 1 1 3.6 2.4c-.7.3-1 .8-1 1.5v.4"/><circle cx="12" cy="16.4" r=".9" fill="currentColor" stroke="none"/></g>',
+      saude: '<circle class="r-cabeca" cx="14.5" cy="4.5" r="2"/><path class="r-corpo" d="M13.5 7.5l-2 6"/>' +
+        '<path class="r-braco-a" d="M13.2 8.5l3.3 2.2"/><path class="r-braco-b" d="M13.2 8.5l-3.6 1.2"/>' +
+        '<path class="r-perna-a" d="M11.5 13.5l3 2.5-.5 4"/><path class="r-perna-b" d="M11.5 13.5l-2.5 3.2-3.5.3"/><path class="r-vento" d="M2 9h3M3 12.5h3"/>',
+      estudos: '<path class="l-capa" d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5z"/><path class="l-lombada" d="M12 6.5v13"/>' +
+        '<path class="l-pagina" d="M12 6.5c1.6-1.1 3.9-1.5 6.5-1.3v12.3c-2.6-.2-4.9.2-6.5 1.3z"/>',
+      jardim: '<path class="j-caule" d="M12 21v-9"/><path class="j-folha-a" d="M12 13c-4 0-6-2.5-6-6 3.5 0 6 2 6 6z"/><path class="j-folha-b" d="M12 11c0-3.5 2.5-6 6.5-6 0 4-2.5 6-6.5 6z"/><path d="M7 21h10"/>',
+      jarvis: '<circle class="o-nucleo" cx="12" cy="12" r="3.2"/><path class="o-anel" d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5"/><path class="o-anel o-anel-b" d="M12 20.5A8.5 8.5 0 0 1 3.5 12"/><circle class="o-pulso" cx="12" cy="12" r="6"/>',
+      loja: '<path d="M5 8h14l-1.2 11.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/><circle class="s-moeda" cx="12" cy="2.5" r="1.6"/>',
+      spotify: '<path class="eq eq-1" d="M5 20V12"/><path class="eq eq-2" d="M9.7 20V6"/><path class="eq eq-3" d="M14.3 20V10"/><path class="eq eq-4" d="M19 20V4"/>',
+      ajustes: '<g class="g-roda"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.3"/></g>',
+      sair: '<path d="M14 4h4.5a1.5 1.5 0 0 1 1.5 1.5v13a1.5 1.5 0 0 1-1.5 1.5H14"/><g class="x-seta"><path d="M10 16.5L5.5 12 10 7.5M5.5 12H15"/></g>'
+    };
+    return '<svg class="nico nico-' + rota + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (I[rota] || '') + '</svg>';
+  }
   function ico(n, extra) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" shape-rendering="crispEdges" ' + (extra || '') + '>' + (ICO[n] || '') + '</svg>';
   }
@@ -286,7 +313,7 @@
   // ---------------------------------------------------------------- tema e Matrix
   var matrixTimer = null;
   function aplicarTema() {
-    var tema = (estado.equipado && estado.equipado.tema) || 'tema-hud';
+    var tema = (estado.equipado && estado.equipado.tema) || 'tema-clean';
     document.documentElement.dataset.tema = tema;
     var cor = getComputedStyle(document.documentElement).getPropertyValue('--fundo').trim();
     var meta = $('meta[name="theme-color"]');
@@ -366,11 +393,11 @@
     ['jardim', 'Jardim'], ['jarvis', 'Jarvis'], ['loja', 'Loja'], ['spotify', 'Spotify'], ['ajustes', 'Ajustes']
   ];
   function montarCasca() {
-    var nav = ROTAS.map(function (r) { return '<a class="nav-item" href="#' + r[0] + '" data-rota="' + r[0] + '">' + ico(r[0]) + '<span class="rot">' + r[1] + '</span></a>'; }).join('');
+    var nav = ROTAS.map(function (r) { return '<a class="nav-item" href="#' + r[0] + '" data-rota="' + r[0] + '">' + navIco(r[0]) + '<span class="rot">' + r[1] + '</span></a>'; }).join('');
     $('#app').className = '';
     $('#app').innerHTML =
-      '<div class="casca"><nav class="trilho"><div class="marca">J.A.R.V.I.S</div>' + nav + '<div class="espaco"></div>' +
-      '<button class="nav-item" data-sair>' + ico('sair') + '<span class="rot">Sair</span></button></nav>' +
+      '<div class="casca"><nav class="trilho"><div class="marca"><span class="marca-orb"></span>JARVIS</div>' + nav + '<div class="espaco"></div>' +
+      '<button class="nav-item" data-sair>' + navIco('sair') + '<span class="rot">Sair</span></button></nav>' +
       '<main class="principal"><button type="button" id="sinc" class="sinc"></button><section class="hud" id="hud"></section><div id="tela"></div></main></div>' +
       '<nav class="nav-baixo">' + nav + '</nav><div id="mini-player"></div>';
     $('#sinc').addEventListener('click', function () { if (fila().length) sincronizar(); else verificarPc(); });
@@ -478,6 +505,14 @@
   /** Troca o contêiner da tela por um novo, sem os ouvintes da renderização anterior. */
   function novo(el) { var n = el.cloneNode(false); if (el.parentNode) el.parentNode.replaceChild(n, el); return n; }
 
+  function avisosHtml(lista) {
+    if (!lista || !lista.length) return '';
+    var ROT = { claude: ['Claude', 'claude'], ifro: ['IFRO', 'ifro'], erro: ['Atenção', 'erro'], info: ['Jarvis', 'info'] };
+    return '<section class="painel c-12 avisos"><header><h2 class="titulo-pixel">Novidades</h2><span class="mini">desde a última vez</span></header><ul class="lista">' +
+      lista.map(function (a) { var r = ROT[a.tipo] || ROT.info; return '<li class="item aviso-' + r[1] + '"><span class="aviso-selo">' + r[0] + '</span><div class="item-titulo">' + esc(a.texto) + '<small>' + br(a.em) + ' ' + String(a.em).slice(11, 16) + '</small></div></li>'; }).join('') +
+      '</ul></section>';
+  }
+
   TELAS.hoje = function (tela) {
     tela = novo(tela);
     api('hoje').then(function (d) {
@@ -489,7 +524,7 @@
       tela.innerHTML =
         '<div class="cabeca-pagina"><div><h1>' + saudacao + ', Hiago.</h1><p>' + DIAS_LONGO[new Date().getDay()] + ', ' + new Date().toLocaleDateString('pt-BR') + ' · ' + feitas + '/' + d.tarefas.length + ' missões concluídas</p></div>' +
         '<button class="btn cheio" data-nova>' + ico('mais') + ' Missão</button></div>' +
-        '<div class="grade">' +
+        '<div class="grade">' + avisosHtml(d.avisos) +
         '<section class="painel c-7"><header><h2 class="titulo-pixel">Missões de hoje</h2></header><ul class="lista" id="l-tarefas">' +
         (d.tarefas.length ? d.tarefas.map(function (t) { return itemTarefa(t, t.data !== d.data); }).join('') : '<li class="vazio">Nenhuma missão hoje. Planeje a semana em Missões.</li>') + '</ul></section>' +
         '<section class="painel c-5"><header><h2 class="titulo-pixel">Hábitos</h2><span class="mini">+5 XP cada · combo +20</span></header><ul class="lista" id="l-habitos">' +
@@ -824,7 +859,7 @@
     api('jogo').then(function (d) {
       atualizarHud(d.jogo);
       var eq = d.jogo.equipado, pets = eq.pets || [], grupos = [['tema', 'Temas'], ['pet', 'Mascotes'], ['titulo', 'Títulos'], ['efeito', 'Efeitos']];
-      var amostras = { 'tema-hud': ['#060b14', '#00e5ff', '#ffb300'], 'tema-gameboy': ['#0f380f', '#306230', '#9bbc0f'], 'tema-synthwave': ['#12002b', '#ff40c4', '#29f0ff'], 'tema-matrix': ['#000', '#00ff41', '#b6ff00'], 'tema-pergaminho': ['#2a1a10', '#ead7b0', '#8b1e1e'],
+      var amostras = { 'tema-clean': ['#0b0f17', '#6d8bff', '#a78bfa'], 'tema-hud': ['#060b14', '#00e5ff', '#ffb300'], 'tema-gameboy': ['#0f380f', '#306230', '#9bbc0f'], 'tema-synthwave': ['#12002b', '#ff40c4', '#29f0ff'], 'tema-matrix': ['#000', '#00ff41', '#b6ff00'], 'tema-pergaminho': ['#2a1a10', '#ead7b0', '#8b1e1e'],
         'tema-abismo': ['#000', '#111', '#fff'], 'tema-neon': ['#07070d', '#fcee0a', '#02d7f2'], 'tema-manga': ['#1a0b2e', '#f0c83c', '#ff4fa3'], 'tema-halloween': ['#120a12', '#ff7a1a', '#a663ff'], 'tema-misterio': ['#0a1210', '#c4a05a', '#5fd0b0'] };
       var temProprio = d.itens.some(function (i) { return i.id === 'pet-proprio' && i.possui; });
       var cartao = function (i, g) {
@@ -1019,6 +1054,15 @@
         '<p class="mini">Na fila agora: <strong>' + fila().length + '</strong> · Última sincronização: ' + (rede.ultima ? br(rede.ultima) + ' às ' + rede.ultima.slice(11, 16) : 'nenhuma') + '</p>' +
         '<p class="mini">Funciona offline: missões, hábitos, refeições, treino, peso, estudos, livros e diário de comida (a IA calcula quando sincronizar). Precisa do PC: chat, opinião e balanço da IA, loja e Spotify.</p>' +
         '<button type="button" class="btn" data-sinc-agora>Sincronizar agora</button></section>' +
+        '<section class="painel c-6"><header><h2 class="titulo-pixel">IFRO: atividades</h2><span class="selo ' + (d.ifro_ical ? 'lido' : '') + '">' + (d.ifro_ical ? 'Ligado' : 'Desligado') + '</span></header>' +
+        '<form data-ifro style="display:grid;gap:10px"><p class="mini" style="margin:0">As atividades novas entram sozinhas como missões, com a data de entrega, e aparecem em Novidades.</p>' +
+        '<ol class="mini" style="margin:0;padding-left:18px"><li>Entre no Moodle do IFRO e abra o <em>Calendário</em>.</li><li>Clique em <em>Importar ou exportar calendários</em> › <em>Exportar calendário</em>.</li><li>Marque <em>Todos os cursos</em> e <em>Eventos recentes e próximos</em>, clique em <em>Obter URL do calendário</em> e cole o link aqui.</li></ol>' +
+        '<label class="campo">Link do calendário (.ics)<input name="ical" value="' + esc(d.ifro_ical) + '" placeholder="https://...export_execute.php?..." autocomplete="off"></label>' +
+        (d.ifro_erro ? '<p class="mini" style="color:var(--perigo);margin:0">' + esc(d.ifro_erro) + '</p>' : d.ifro_ultima ? '<p class="mini" style="margin:0">Última busca: ' + br(d.ifro_ultima) + ' às ' + d.ifro_ultima.slice(11, 16) + '</p>' : '') +
+        '<div class="linha"><button class="btn cheio">Salvar</button><button type="button" class="btn" data-ifro-agora' + (d.ifro_ical ? '' : ' disabled') + '>Buscar agora</button></div></form></section>' +
+        '<section class="painel c-6"><header><h2 class="titulo-pixel">Claude</h2><span class="selo lido">Ligado</span></header>' +
+        '<p>Fale com o Claude no app dele (com o PC conectado) e ele mexe aqui por você: "me lembra de estudar X na quinta", "terminei o livro Y", "marca o treino de hoje".</p>' +
+        '<p class="mini">O que o Claude fizer aparece em <strong>Novidades</strong>, na tela Hoje, com o XP já contado.</p></section>' +
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Cérebro do Jarvis (Gemini)</h2><span class="selo ' + (d.gemini_configurado ? 'lido' : '') + '">' + (d.gemini_configurado ? 'Ligado' : 'Desligado') + '</span></header>' +
         '<form data-ia style="display:grid;gap:10px"><p class="mini">Crie uma chave grátis em aistudio.google.com › <em>Get API key</em>. Ela fica só no seu servidor.</p>' +
         '<label class="campo">Chave da API<input name="chave" type="password" placeholder="' + (d.gemini_configurado ? '•••••••• (já salva)' : 'AIza...') + '" autocomplete="off"></label>' +
@@ -1030,6 +1074,9 @@
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Hábitos diários</h2></header><div id="hab"></div><form data-novo-hab class="linha" style="margin-top:10px"><input class="cresce" name="nome" placeholder="Novo hábito"><button class="btn">Adicionar</button></form></section>' +
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Trocar senha</h2></header><form data-senha style="display:grid;gap:10px"><label class="campo">Senha atual<input type="password" name="atual"></label><label class="campo">Nova senha<input type="password" name="nova" minlength="8"></label><button class="btn cheio">Trocar</button></form></section></div>';
       $('[data-sinc-agora]', tela).addEventListener('click', function () { (fila().length ? sincronizar() : verificarPc()).then(function () { if (!fila().length && !rede.offline) toast('Tudo em dia com o PC.'); }); });
+      var fif = $('[data-ifro]', tela);
+      fif.addEventListener('submit', function (e) { e.preventDefault(); api('ajustes_salvar', { ifro_ical: fif.ical.value }).then(function () { toast('Calendário do IFRO salvo.'); return fif.ical.value.trim() ? api('ifro_atualizar', {}) : null; }).then(function (r) { if (r) toast(r.novos ? r.novos + ' atividade(s) nova(s) do IFRO viraram missões.' : 'Calendário lido. Nenhuma atividade nova.'); TELAS.ajustes(tela); }).catch(function () {}); });
+      $('[data-ifro-agora]', tela).addEventListener('click', function (e) { var b = e.currentTarget; b.disabled = true; b.textContent = 'Buscando...'; api('ifro_atualizar', {}).then(function (r) { toast(r.novos ? r.novos + ' atividade(s) nova(s) do IFRO viraram missões.' : 'Nenhuma atividade nova no IFRO.'); }).catch(function () {}).then(function () { TELAS.ajustes(tela); }); });
       var bi = $('[data-instalar]', tela);
       bi.addEventListener('click', function () { if (instalarEvento) { instalarEvento.prompt(); instalarEvento = null; bi.disabled = true; } });
       var fi = $('[data-ia]', tela);

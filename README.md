@@ -16,6 +16,9 @@ Instala no celular e no computador como um app, e sincroniza pelos dois.
 - **Gamificação:** XP, níveis, moedas e loja com 10 temas (HUD, portátil retrô, synthwave, código verde, taverna, abismo, neon city, mangá bizarro, Halloween, mistério), 9 mascotes em pixel art com animações próprias (até 3 andando juntos) e mascotes enviados pelo usuário, títulos, efeitos de partícula e som 8 bits
 - **Spotify:** música tocando agora com controles, top músicas, top artistas, gêneros e histórico (OAuth com PKCE, direto do navegador)
 - **PWA:** instalável, abre rápido com service worker
+- **Visual Nexus (v4):** tema limpo de vidro escuro com ícones animados no menu (calendário com o dia, marcador de missão, corredor, livro folheando...)
+- **Caixa do Claude:** o Claude grava ações em `data/claude/*.json` (mesmo formato da sincronização) e o Jarvis aplica na próxima abertura, mostrando em *Novidades*
+- **Calendário do IFRO:** importa o link .ics do Moodle e transforma atividades novas em missões com a data de entrega
 - **Offline-first:** longe do servidor, as telas abrem com a última cópia guardada e cada ação vai para uma fila com o horário em que foi feita; quando o servidor aparece, a fila é aplicada em ordem (`?r=sync`). Conflito entre aparelhos: vale a edição mais recente (carimbo por item), e itens criados offline recebem id provisório que o servidor troca pelo definitivo
 
 ## Tecnologias

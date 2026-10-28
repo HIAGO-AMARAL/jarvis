@@ -16,6 +16,11 @@ function executar_rota(string $r): void
 
             // -------- Painel do dia
             case 'hoje':
+                try {
+                    ifro_atualizar();
+                } catch (Throwable $e) {
+                    error_log('IFRO: ' . $e->getMessage());
+                }
                 $d = hoje();
                 $tarefas = db()->prepare('SELECT * FROM tarefas WHERE data = ? OR (data < ? AND feita = 0) ORDER BY feita, data, dificuldade DESC, id');
                 $tarefas->execute([$d, $d]);
@@ -31,6 +36,7 @@ function executar_rota(string $r): void
                     'treino' => db()->query('SELECT * FROM treino WHERE dia = ' . (int) date('w'))->fetch() ?: null,
                     'lendo' => db()->query("SELECT id, titulo, autor FROM livros WHERE status = 'lendo' ORDER BY atualizado_em DESC")->fetchAll(),
                     'jogo' => jogo_status(),
+                    'avisos' => pegar_avisos(),
                 ]);
 
             // -------- Missões (tarefas)
@@ -425,6 +431,9 @@ function executar_rota(string $r): void
                     'gemini_configurado' => ia_configurada(),
                     'gemini_modelo' => ia_modelo(),
                     'spotify_client_id' => ajuste('spotify_client_id'),
+                    'ifro_ical' => ajuste('ifro_ical'),
+                    'ifro_ultima' => ajuste('ifro_ultima'),
+                    'ifro_erro' => ajuste('ifro_erro'),
                 ]);
 
             case 'ajustes_salvar':
@@ -441,6 +450,14 @@ function executar_rota(string $r): void
                 if (isset($e['spotify_client_id'])) {
                     salvar_ajuste('spotify_client_id', preg_replace('/[^a-z0-9]/i', '', (string) $e['spotify_client_id']));
                 }
+                if (isset($e['ifro_ical'])) {
+                    $u = trim(str_replace('webcal://', 'https://', (string) $e['ifro_ical']));
+                    if ($u !== '' && !preg_match('#^https://[^\s]+$#i', $u)) {
+                        erro('Cole o link completo do calendário (começa com https:// ou webcal://).');
+                    }
+                    salvar_ajuste('ifro_ical', $u);
+                    salvar_ajuste('ifro_ultima', '');
+                }
                 if (!empty($e['senha_nova'])) {
                     if (!password_verify((string) ($e['senha_atual'] ?? ''), ajuste('senha_hash'))) {
                         erro('Senha atual incorreta.');
@@ -451,6 +468,10 @@ function executar_rota(string $r): void
                     salvar_ajuste('senha_hash', password_hash((string) $e['senha_nova'], PASSWORD_DEFAULT));
                 }
                 responder(['ok' => true]);
+
+            case 'ifro_atualizar':
+                $n = ifro_atualizar(true);
+                responder(['ok' => true, 'novos' => $n, 'avisos' => pegar_avisos()]);
 
             case 'ia_testar':
                 responder(['resposta' => ia_gerar('Responda em uma frase curta, em português.', [['papel' => 'user', 'texto' => 'Diga oi para o Hiago como o Jarvis.']])]);

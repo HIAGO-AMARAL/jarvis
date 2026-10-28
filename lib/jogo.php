@@ -93,7 +93,8 @@ function loja_itens(): array
 {
     return [
         // tipo, nome, preço, descrição
-        'tema-hud'        => ['tema', 'HUD Stark', 0, 'Painel azul de laboratório. O padrão.'],
+        'tema-clean'      => ['tema', 'Nexus', 0, 'Visual limpo de tecnologia: vidro escuro, azul e violeta. O padrão.'],
+        'tema-hud'        => ['tema', 'HUD Stark', 0, 'Painel azul de laboratório, estilo retrô.'],
         'tema-gameboy'    => ['tema', 'Tijolão 1989', 150, 'Verde de console portátil antigo, 4 tons.'],
         'tema-synthwave'  => ['tema', 'Synthwave', 300, 'Neon rosa e roxo, pôr do sol de fliperama.'],
         'tema-matrix'     => ['tema', 'Código Verde', 300, 'Chuva de caracteres verdes no fundo.'],
@@ -126,11 +127,15 @@ function loja_itens(): array
 function equipado(): array
 {
     $e = json_decode(ajuste('equipado', ''), true) ?: [];
-    $e = array_merge(['tema' => 'tema-hud', 'pets' => [], 'titulo' => 'titulo-aprendiz', 'efeito-confete' => false, 'efeito-som' => false], $e);
+    $e = array_merge(['tema' => 'tema-clean', 'pets' => [], 'titulo' => 'titulo-aprendiz', 'efeito-confete' => false, 'efeito-som' => false], $e);
     if (!empty($e['pet']) && !$e['pets']) {
         $e['pets'] = [$e['pet']]; // versão 1 guardava um mascote só
     }
     unset($e['pet']);
+    // versão 4: quem estava no HUD padrão passa para o visual novo (uma vez só)
+    if (empty($e['v4']) && $e['tema'] === 'tema-hud') {
+        $e['tema'] = 'tema-clean';
+    }
     return $e;
 }
 
@@ -192,6 +197,7 @@ function equipar(string $item, bool $ligar = true): void
     } else {
         $e[$tipo] = $item;
     }
+    $e['v4'] = true;
     salvar_ajuste('equipado', json_encode($e));
 }
 
