@@ -38,37 +38,8 @@ timeout /t 3 >nul
 
 rem ---------------------------------------------------------------- 4. Tailscale (HTTPS e acesso pelo celular)
 echo [4/5] Conferindo o Tailscale...
-set "TS=tailscale"
-where tailscale >nul 2>&1 || set "TS=%ProgramFiles%\Tailscale\tailscale.exe"
-if not exist "%TS%" where tailscale >nul 2>&1 || (
-    echo       Instalando o Tailscale pelo winget...
-    winget install -e --id Tailscale.Tailscale --accept-package-agreements --accept-source-agreements
-    set "TS=%ProgramFiles%\Tailscale\tailscale.exe"
-    echo.
-    echo       Abra o Tailscale (icone perto do relogio^) e entre com a sua conta Google.
-    echo       Depois aperte qualquer tecla aqui para continuar.
-    pause >nul
-)
-echo       Publicando o Jarvis na sua rede privada do Tailscale...
-"%TS%" serve --bg http://127.0.0.1:8080
-if errorlevel 1 (
-    echo.
-    echo       O Tailscale pediu para ligar o HTTPS. Abra o link que apareceu acima,
-    echo       clique em Enable e rode este instalador de novo.
-    pause
-    exit /b 1
-)
+if not exist "%ProgramFiles%\Tailscale\tailscale.exe" winget install -e --id Tailscale.Tailscale --accept-package-agreements --accept-source-agreements
 
-rem ---------------------------------------------------------------- 5. endereco
-echo [5/5] Pronto!
-for /f "delims=" %%U in ('powershell -NoProfile -Command "try { ((& '%TS%' status --json | ConvertFrom-Json).Self.DNSName).TrimEnd('.') } catch { '' }"') do set "URL=%%U"
-echo.
-if defined URL (
-    echo   Endereco do seu Jarvis:  https://%URL%
-    echo   Use ESSE endereco no PC e no celular ^(com o Tailscale ligado no celular^).
-    start "" "https://%URL%"
-) else (
-    echo   Rode "tailscale status" para ver o nome do PC e abra https://NOME-DO-PC.SEU-TAILNET.ts.net
-)
-echo.
-pause
+rem ---------------------------------------------------------------- 5. login, HTTPS e atalho
+echo [5/5] Terminando...
+call "%~dp0finalizar-jarvis.bat"
