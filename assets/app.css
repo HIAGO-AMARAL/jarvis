@@ -393,3 +393,14 @@ label.campo { display: flex; flex-direction: column; gap: 6px; font-size: 13px; 
 .macros { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; text-align: center; }
 .macros div { background: var(--fundo-2); border: 2px solid var(--borda); padding: 8px; }
 .macros b { display: block; font-family: var(--fonte-hud); font-size: 26px; color: var(--acento); }
+
+/* ---------------------------------------------------------------- selo de sincronização com o PC */
+.sinc { display: block; width: fit-content; margin: 0 0 8px auto; font-family: var(--fonte-hud); font-size: 17px; line-height: 1; padding: 6px 10px; cursor: pointer;
+  background: var(--painel); color: var(--texto-2); border: 2px solid var(--borda); border-radius: var(--raio); backdrop-filter: blur(6px); }
+.sinc.on { color: var(--ok); }
+.sinc.pendente { color: var(--xp); border-color: var(--xp); }
+.sinc.off { color: var(--acento-2); border-color: var(--acento-2); }
+.sinc.girando { color: var(--acento); border-color: var(--acento); animation: sinc-pisca .8s steps(2) infinite; }
+@keyframes sinc-pisca { 50% { opacity: .55; } }
+@media (max-width: 900px) { .sinc { font-size: 15px; padding: 4px 8px; } }
+@media (prefers-reduced-motion: reduce) { .sinc.girando { animation: none; } }

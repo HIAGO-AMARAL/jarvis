@@ -22,11 +22,44 @@
   function somaDias(s, n) { var d = deIso(s); d.setDate(d.getDate() + n); return iso(d); }
   function segunda(s) { var d = deIso(s); var w = (d.getDay() + 6) % 7; d.setDate(d.getDate() - w); return iso(d); }
 
-  function api(rota, corpo, metodo) {
+  // ---------------------------------------------------------------- conversa com o servidor (e modo offline)
+  // O Jarvis mora no PC. Quando o celular não alcança o PC, as telas abrem com a
+  // última cópia guardada no aparelho e as ações vão para uma fila, com o horário
+  // em que foram feitas. Quando o PC aparece de novo, a fila é enviada (?r=sync)
+  // e o servidor aplica tudo em ordem; se o mesmo item foi editado nos dois,
+  // vale a edição mais recente.
+  var ROTAS_OFFLINE = ['tarefa_salvar', 'tarefa_marcar', 'tarefa_excluir', 'habito_marcar', 'habito_salvar', 'habito_excluir',
+    'refeicao_marcar', 'refeicao_salvar', 'refeicao_excluir', 'treino_salvar', 'peso_salvar', 'peso_excluir',
+    'estudo_salvar', 'estudo_excluir', 'livro_salvar', 'livro_excluir', 'comida_adicionar', 'comida_excluir', 'metas_salvar'];
+  var ROTAS_LENTAS = ['chat_enviar', 'livro_opiniao', 'comida_adicionar', 'comida_balanco', 'ia_testar', 'sync', 'pet_enviar'];
+  var LS = {
+    ler: function (k, padrao) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : padrao; } catch (e) { return padrao; } },
+    gravar: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* aparelho sem espaço */ } },
+    apagar: function (k) { try { localStorage.removeItem(k); } catch (e) {} },
+    chaves: function (prefixo) { var r = []; try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (k && k.indexOf(prefixo) === 0) r.push(k); } } catch (e) {} return r; }
+  };
+  var rede = { offline: false, sincronizando: false, ultima: LS.ler('jv_ultima_sync', '') };
+
+  function agoraLocal() {
+    var d = new Date(), z = function (n, t) { n = String(n); while (n.length < (t || 2)) n = '0' + n; return n; };
+    return iso(d) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()) + ':' + z(d.getSeconds()) + '.' + z(d.getMilliseconds(), 3);
+  }
+  function fila() { return LS.ler('jv_fila', []); }
+  function salvarFila(f) { LS.gravar('jv_fila', f); mostrarSinc(); }
+  function marcarOffline(off) { if (rede.offline !== off) { rede.offline = off; mostrarSinc(); } }
+
+  /** Pedido cru ao servidor. Falha de rede vira erro com .rede = true. */
+  function pedir(rota, corpo, metodo) {
     var op = { method: metodo || (corpo ? 'POST' : 'GET'), headers: { 'X-CSRF': CSRF }, credentials: 'same-origin' };
     if (corpo instanceof FormData) op.body = corpo;
     else if (corpo) { op.headers['Content-Type'] = 'application/json'; op.body = JSON.stringify(corpo); }
-    return fetch('api.php?r=' + rota, op).then(function (r) {
+    var nome = rota.split('&')[0], ctrl = window.AbortController ? new AbortController() : null;
+    if (ctrl) { op.signal = ctrl.signal; setTimeout(function () { ctrl.abort(); }, ROTAS_LENTAS.indexOf(nome) >= 0 ? 90000 : 7000); }
+    return fetch('api.php?r=' + rota, op).catch(function () {
+      marcarOffline(true);
+      var x = new Error('Sem conexão com o PC.'); x.rede = true; throw x;
+    }).then(function (r) {
+      marcarOffline(false);
       return r.json().catch(function () { return { erro: 'Resposta inválida do servidor.' }; }).then(function (j) {
         if (r.status === 401 && rota !== 'entrar') { telaLogin(); throw new Error(j.erro); }
         if (!r.ok || j.erro) { toast(j.erro || 'Erro.', 'erro'); throw new Error(j.erro); }
@@ -34,6 +67,134 @@
       });
     });
   }
+
+  function api(rota, corpo, metodo) {
+    var nome = rota.split('&')[0], offlineOk = ROTAS_OFFLINE.indexOf(nome) >= 0;
+    if (corpo && !(corpo instanceof FormData)) corpo._em = corpo._em || agoraLocal();
+    // com fila pendente, a ação nova entra no fim dela, para manter a ordem
+    if (corpo && offlineOk && (rede.offline || fila().length)) return enfileirar(nome, corpo);
+    return pedir(rota, corpo, metodo).then(function (j) {
+      if (!corpo) LS.gravar('jv_c:' + rota, j);
+      return j;
+    }, function (err) {
+      if (!err.rede) throw err;
+      if (!corpo) {
+        var c = LS.ler('jv_c:' + rota, null);
+        if (c) return c;
+        toast('Sem conexão com o PC, e esta tela ainda não foi aberta neste aparelho.', 'erro');
+        throw err;
+      }
+      if (offlineOk) return enfileirar(nome, corpo);
+      toast('Isso precisa do Jarvis do PC ligado. Tente quando ele estiver on.', 'erro');
+      throw err;
+    });
+  }
+
+  function enfileirar(rota, corpo) {
+    var idTemp = null;
+    if ((/_salvar$/.test(rota) || rota === 'comida_adicionar') && !(+corpo.id) && rota !== 'treino_salvar' && rota !== 'peso_salvar' && rota !== 'metas_salvar') {
+      idTemp = -(Date.now() * 10 + Math.floor(Math.random() * 10));
+      corpo.id = idTemp;
+    }
+    var f = fila();
+    f.push({ fila: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), rota: rota, corpo: corpo, em: corpo._em });
+    salvarFila(f);
+    var xp = aplicarLocal(rota, corpo);
+    setTimeout(sincronizar, 60);
+    return Promise.resolve({ ok: true, offline: true, id: idTemp, xp: xp });
+  }
+
+  /** Atualiza as cópias guardadas das telas, para a ação aparecer mesmo sem o PC. Devolve o XP estimado. */
+  function aplicarLocal(rota, c) {
+    var xp = 0;
+    var cada = function (prefixo, fn) { LS.chaves('jv_c:' + prefixo).forEach(function (k) { var v = LS.ler(k, null); if (v) { fn(v); LS.gravar(k, v); } }); };
+    var listas = function (v) { return [v.tarefas, v.sem_data].filter(Boolean); };
+    var tirar = function (lista, id) { for (var i = lista.length - 1; i >= 0; i--) if (+lista[i].id === +id) lista.splice(i, 1); };
+    var achar = function (lista, id) { return (lista || []).filter(function (x) { return +x.id === +id; })[0]; };
+    if (rota === 'tarefa_marcar') {
+      var dif = 2;
+      ['hoje', 'semana'].forEach(function (p) { cada(p, function (v) { listas(v).forEach(function (l) { var t = achar(l, c.id); if (t) { t.feita = c.feita ? 1 : 0; dif = +t.dificuldade || dif; } }); }); });
+      xp = c.feita ? DIF[dif][1] : 0;
+    } else if (rota === 'tarefa_salvar') {
+      var velha = null;
+      ['hoje', 'semana'].forEach(function (p) { cada(p, function (v) { listas(v).forEach(function (l) { velha = velha || achar(l, c.id); tirar(l, c.id); }); }); });
+      var t = { id: c.id, titulo: c.titulo, data: c.data || null, categoria: c.categoria || 'geral', dificuldade: +c.dificuldade || 2, feita: velha ? velha.feita : 0 };
+      cada('hoje', function (v) { if (t.data && (t.data === v.data || (t.data < v.data && !+t.feita))) v.tarefas.push(t); });
+      cada('semana', function (v) { if (!t.data) v.sem_data.unshift(t); else if (t.data >= v.inicio && t.data <= v.fim) v.tarefas.push(t); });
+    } else if (rota === 'tarefa_excluir') {
+      ['hoje', 'semana'].forEach(function (p) { cada(p, function (v) { listas(v).forEach(function (l) { tirar(l, c.id); }); }); });
+    } else if (rota === 'habito_marcar' || rota === 'refeicao_marcar') {
+      var hab = rota === 'habito_marcar';
+      cada('hoje', function (v) { if (v.data !== (c.data || iso(new Date()))) return; var x = achar(hab ? v.habitos : v.refeicoes, c.id); if (x) x[hab ? 'feito' : 'feita'] = (hab ? c.feito : c.feita) ? 1 : 0; });
+      xp = (hab ? c.feito : c.feita) ? (hab ? 5 : 2) : 0;
+    } else if (rota === 'peso_salvar' || rota === 'peso_excluir') {
+      var data = c.data || iso(new Date());
+      cada('saude', function (v) {
+        v.pesos = v.pesos.filter(function (p) { return p.data !== data; });
+        if (rota === 'peso_salvar') { v.pesos.push({ data: data, kg: String(c.kg).replace(',', '.') }); v.pesos.sort(function (a, b) { return a.data < b.data ? 1 : -1; }); }
+      });
+      xp = rota === 'peso_salvar' ? 5 : 0;
+    } else if (rota === 'treino_salvar') {
+      var tr = { dia: c.dia, titulo: c.titulo || 'Treino', exercicios: c.exercicios || '' };
+      cada('saude', function (v) { v.treino = v.treino.filter(function (x) { return +x.dia !== +c.dia; }).concat([tr]); });
+      cada('hoje', function (v) { if (deIso(v.data).getDay() === +c.dia) v.treino = tr; });
+    } else if (rota === 'estudo_salvar' || rota === 'livro_salvar') {
+      var lista = rota === 'estudo_salvar' ? 'estudos' : 'livros';
+      cada('estudos', function (v) {
+        var x = achar(v[lista], c.id);
+        if (!x) { x = { id: c.id }; v[lista].push(x); }
+        ['titulo', 'detalhe', 'status', 'autor', 'nota', 'resumo'].forEach(function (k) { if (k in c) x[k] = c[k]; });
+      });
+      xp = rota === 'livro_salvar' && c.status === 'lido' ? 100 : 0;
+    } else if (rota === 'estudo_excluir' || rota === 'livro_excluir') {
+      cada('estudos', function (v) { tirar(v[rota === 'estudo_excluir' ? 'estudos' : 'livros'], c.id); });
+    } else if (rota === 'comida_adicionar') {
+      var dia = c.data || iso(new Date());
+      cada('comidas', function (v) { if (dia >= v.inicio && dia <= v.fim) v.comidas.push({ id: c.id, data: dia, descricao: c.descricao, itens: '[]', kcal: 0, proteina: 0, carbo: 0, gordura: 0, pendente: 1 }); });
+      xp = 2;
+    } else if (rota === 'comida_excluir') {
+      cada('comidas', function (v) { tirar(v.comidas, c.id); });
+    }
+    return xp;
+  }
+
+  function sincronizar() {
+    var f = fila();
+    if (!f.length || rede.sincronizando) return Promise.resolve();
+    rede.sincronizando = true; mostrarSinc();
+    return pedir('sync', { ops: f }, 'POST').then(function (r) {
+      var feitos = {};
+      r.resultados.forEach(function (x) { feitos[x.fila] = x; });
+      var resto = fila().filter(function (op) { return !feitos[op.fila]; });
+      resto.forEach(function (op) { if (op.corpo && r.mapa[op.corpo.id]) op.corpo.id = +r.mapa[op.corpo.id]; });
+      salvarFila(resto);
+      rede.ultima = agoraLocal().slice(0, 16); LS.gravar('jv_ultima_sync', rede.ultima);
+      if (r.jogo) atualizarHud(r.jogo);
+      r.resultados.filter(function (x) { return x.erro; }).forEach(function (x) { toast('Uma ação não sincronizou: ' + x.erro, 'erro'); });
+      toast('Sincronizado com o PC (' + f.length + (f.length === 1 ? ' ação)' : ' ações)'));
+      if (!$('.modal-fundo') && $('#tela')) navegar();
+      if (resto.length) setTimeout(sincronizar, 400);
+    }, function () { /* continua na fila; tenta de novo depois */ }).then(function () { rede.sincronizando = false; mostrarSinc(); });
+  }
+
+  function mostrarSinc() {
+    var el = $('#sinc');
+    if (!el) return;
+    var n = fila().length;
+    el.className = 'sinc ' + (rede.sincronizando ? 'girando' : rede.offline ? 'off' : n ? 'pendente' : 'on');
+    el.textContent = rede.sincronizando ? '⟳ sincronizando' : rede.offline ? '○ offline' + (n ? ' · ' + n + ' na fila' : '') : n ? '● ' + n + ' na fila' : '● PC conectado';
+    el.title = rede.offline ? 'O celular não está alcançando o Jarvis do PC. Tudo que você fizer fica salvo aqui e sincroniza sozinho.' : 'Última sincronização: ' + (rede.ultima ? br(rede.ultima) + ' ' + rede.ultima.slice(11, 16) : 'nenhuma');
+  }
+
+  /** Testa se o PC voltou (e envia a fila). */
+  function verificarPc() {
+    if (fila().length) return sincronizar();
+    if (!rede.offline) return Promise.resolve();
+    return pedir('estado').then(function (s) { if (s.csrf) { CSRF = s.csrf; } if (!s.logado) telaLogin(); }).catch(function () {});
+  }
+  window.addEventListener('online', function () { setTimeout(verificarPc, 800); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) verificarPc(); });
+  setInterval(verificarPc, 20000);
 
   function toast(texto, tipo) {
     var t = document.createElement('div');
@@ -210,12 +371,20 @@
     $('#app').innerHTML =
       '<div class="casca"><nav class="trilho"><div class="marca">J.A.R.V.I.S</div>' + nav + '<div class="espaco"></div>' +
       '<button class="nav-item" data-sair>' + ico('sair') + '<span class="rot">Sair</span></button></nav>' +
-      '<main class="principal"><section class="hud" id="hud"></section><div id="tela"></div></main></div>' +
+      '<main class="principal"><button type="button" id="sinc" class="sinc"></button><section class="hud" id="hud"></section><div id="tela"></div></main></div>' +
       '<nav class="nav-baixo">' + nav + '</nav><div id="mini-player"></div>';
-    $('[data-sair]').addEventListener('click', function () { api('sair', {}).then(function () { location.hash = ''; telaLogin(); }); });
+    $('#sinc').addEventListener('click', function () { if (fila().length) sincronizar(); else verificarPc(); });
+    mostrarSinc();
+    var jogoGuardado = LS.ler('jv_jogo', null);
+    if (jogoGuardado) atualizarHud(jogoGuardado);
+    $('[data-sair]').addEventListener('click', function () {
+      if (fila().length && !confirm('Ainda há ações que não chegaram no PC. Elas ficam guardadas e sincronizam quando você entrar de novo. Sair mesmo?')) return;
+      api('sair', {}).then(function () { LS.chaves('jv_c:').forEach(LS.apagar); location.hash = ''; telaLogin(); });
+    });
   }
   function atualizarHud(j) {
     estado.jogo = j;
+    LS.gravar('jv_jogo', j);
     var mudou = JSON.stringify(estado.equipado) !== JSON.stringify(j.equipado);
     estado.equipado = j.equipado;
     if (mudou) { aplicarTema(); aplicarPet(); }
@@ -339,7 +508,7 @@
         if (!b) return;
         var li = b.closest('.item'), on = !li.classList.contains('feito');
         li.classList.toggle('feito', on);
-        (h ? api('habito_marcar', { id: +h.dataset.habito, feito: on }) : api('refeicao_marcar', { id: +r.dataset.refeicao, feita: on }))
+        (h ? api('habito_marcar', { id: +h.dataset.habito, feito: on, data: d.data }) : api('refeicao_marcar', { id: +r.dataset.refeicao, feita: on, data: d.data }))
           .then(function (res) { recompensa(res, b); });
       });
     });
@@ -457,7 +626,7 @@
         '<h3 class="titulo-pixel" style="margin:14px 0 10px">Hoje</h3><div class="macros">' + macro('kcal', soma(hojeL, 'kcal'), '') + macro('prot.', soma(hojeL, 'proteina'), 'g') + macro('carbo', soma(hojeL, 'carbo'), 'g') + macro('gord.', soma(hojeL, 'gordura'), 'g') + '</div>' +
         '<ul class="lista" style="margin-top:10px">' + (hojeL.length ? hojeL.map(function (c) {
           var itens = []; try { itens = JSON.parse(c.itens || '[]'); } catch (e) {}
-          return '<li class="item"><div class="item-titulo">' + esc(c.descricao) + '<small>' + itens.map(function (x) { return esc(x.nome) + (x.quantidade ? ' (' + esc(x.quantidade) + ')' : '') + ' ~' + Math.round(x.kcal) + ' kcal'; }).join(' · ') + '</small></div><span class="xp-tag">' + Math.round(c.kcal) + ' kcal</span><button class="btn-ico" data-del-comida="' + c.id + '">' + ico('lixo') + '</button></li>';
+          return '<li class="item"><div class="item-titulo">' + esc(c.descricao) + '<small>' + itens.map(function (x) { return esc(x.nome) + (x.quantidade ? ' (' + esc(x.quantidade) + ')' : '') + ' ~' + Math.round(x.kcal) + ' kcal'; }).join(' · ') + '</small></div><span class="xp-tag">' + (c.pendente ? '⏳ calcula ao sincronizar' : Math.round(c.kcal) + ' kcal') + '</span><button class="btn-ico" data-del-comida="' + c.id + '">' + ico('lixo') + '</button></li>';
         }).join('') : '<li class="vazio">Nada registrado hoje.</li>') + '</ul></section>' +
         '<section class="painel c-5"><header><h2 class="titulo-pixel">Semana</h2><div class="linha"><button class="btn-ico" data-sem="-7">' + ico('esq') + '</button><button class="btn-ico" data-sem="7">' + ico('dir') + '</button></div></header>' +
         '<p class="mini">' + br(d.inicio) + ' a ' + br(d.fim) + ' · média ' + mediaK + ' kcal e ' + mediaP + ' g de proteína nos dias registrados</p>' +
@@ -845,6 +1014,11 @@
         '<p><strong>Celular Android ou PC (Chrome/Edge):</strong> toque no botão abaixo, ou no menu do navegador › <em>Instalar app</em>.</p>' +
         '<p><strong>iPhone:</strong> abra no Safari › botão Compartilhar › <em>Adicionar à Tela de Início</em>.</p>' +
         '<button class="btn cheio" data-instalar' + (instalarEvento ? '' : ' disabled') + '>Instalar Jarvis</button>' + (instalarEvento ? '' : '<p class="mini">Botão indisponível: o app já está instalado ou o navegador não oferece. Use o menu do navegador.</p>') + '</section>' +
+        '<section class="painel c-6"><header><h2 class="titulo-pixel">Sincronização</h2></header>' +
+        '<p>O Jarvis mora no seu PC. Longe dele (ou com ele desligado), o celular guarda tudo e manda sozinho quando o PC aparecer. Se o mesmo item foi mudado nos dois, vale a mudança mais recente.</p>' +
+        '<p class="mini">Na fila agora: <strong>' + fila().length + '</strong> · Última sincronização: ' + (rede.ultima ? br(rede.ultima) + ' às ' + rede.ultima.slice(11, 16) : 'nenhuma') + '</p>' +
+        '<p class="mini">Funciona offline: missões, hábitos, refeições, treino, peso, estudos, livros e diário de comida (a IA calcula quando sincronizar). Precisa do PC: chat, opinião e balanço da IA, loja e Spotify.</p>' +
+        '<button type="button" class="btn" data-sinc-agora>Sincronizar agora</button></section>' +
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Cérebro do Jarvis (Gemini)</h2><span class="selo ' + (d.gemini_configurado ? 'lido' : '') + '">' + (d.gemini_configurado ? 'Ligado' : 'Desligado') + '</span></header>' +
         '<form data-ia style="display:grid;gap:10px"><p class="mini">Crie uma chave grátis em aistudio.google.com › <em>Get API key</em>. Ela fica só no seu servidor.</p>' +
         '<label class="campo">Chave da API<input name="chave" type="password" placeholder="' + (d.gemini_configurado ? '•••••••• (já salva)' : 'AIza...') + '" autocomplete="off"></label>' +
@@ -855,6 +1029,7 @@
         '<label class="campo">Client ID<input name="cid" value="' + esc(d.spotify_client_id) + '" autocomplete="off"></label><button class="btn cheio">Salvar</button></form></section>' +
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Hábitos diários</h2></header><div id="hab"></div><form data-novo-hab class="linha" style="margin-top:10px"><input class="cresce" name="nome" placeholder="Novo hábito"><button class="btn">Adicionar</button></form></section>' +
         '<section class="painel c-6"><header><h2 class="titulo-pixel">Trocar senha</h2></header><form data-senha style="display:grid;gap:10px"><label class="campo">Senha atual<input type="password" name="atual"></label><label class="campo">Nova senha<input type="password" name="nova" minlength="8"></label><button class="btn cheio">Trocar</button></form></section></div>';
+      $('[data-sinc-agora]', tela).addEventListener('click', function () { (fila().length ? sincronizar() : verificarPc()).then(function () { if (!fila().length && !rede.offline) toast('Tudo em dia com o PC.'); }); });
       var bi = $('[data-instalar]', tela);
       bi.addEventListener('click', function () { if (instalarEvento) { instalarEvento.prompt(); instalarEvento = null; bi.disabled = true; } });
       var fi = $('[data-ia]', tela);
@@ -896,7 +1071,7 @@
     f.addEventListener('submit', function (e) {
       e.preventDefault();
       if (instalar && f.senha.value !== f.senha2.value) { toast('As senhas não conferem.', 'erro'); return; }
-      api(instalar ? 'instalar' : 'entrar', { senha: f.senha.value }).then(function (r) { CSRF = r.csrf; estado.instalado = true; iniciarApp(); }).catch(function () {});
+      pedir(instalar ? 'instalar' : 'entrar', { senha: f.senha.value }).then(function (r) { CSRF = r.csrf; estado.instalado = true; LS.gravar('jv_c:estado', { instalado: true, logado: true, csrf: r.csrf }); iniciarApp(); }).catch(function (e) { if (e.rede) toast('Sem conexão com o Jarvis do PC.', 'erro'); });
     });
   }
 
@@ -919,11 +1094,14 @@
   window.addEventListener('hashchange', function () { if ($('#tela')) navegar(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 
-  fetch('api.php?r=estado', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (s) {
+  pedir('estado').then(function (s) {
     CSRF = s.csrf;
     estado.instalado = s.instalado;
+    LS.gravar('jv_c:estado', s);
     if (s.logado) iniciarApp(); else telaLogin();
   }).catch(function () {
-    $('#app').innerHTML = '<div class="login"><div class="painel"><span class="boot-logo">OFFLINE</span><p>Sem conexão com o servidor. Tente de novo quando tiver internet.</p></div></div>';
+    var s = LS.ler('jv_c:estado', null);
+    if (s && s.logado) { CSRF = s.csrf; estado.instalado = true; iniciarApp(); return; }
+    $('#app').innerHTML = '<div class="login"><div class="painel"><span class="boot-logo">OFFLINE</span><p>Não encontrei o Jarvis do PC. Na primeira vez, abra com o PC ligado para o aparelho guardar tudo. Depois ele funciona offline.</p></div></div>';
   });
 })();

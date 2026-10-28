@@ -20,6 +20,15 @@ if (!is_dir(dirname(cfg('banco')))) {
 }
 ini_set('error_log', dirname(cfg('banco')) . '/php-erros.log');
 
+// Sessões dentro de data/: continuam valendo quando o PC reinicia.
+$pastaSessoes = dirname(cfg('banco')) . '/sessoes';
+if (!is_dir($pastaSessoes)) {
+    @mkdir($pastaSessoes, 0700, true);
+}
+if (is_dir($pastaSessoes) && is_writable($pastaSessoes)) {
+    session_save_path($pastaSessoes);
+}
+
 $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https');
 session_name('JARVISSESS');
 session_set_cookie_params(['lifetime' => 60 * 60 * 24 * 60, 'path' => '/', 'secure' => $https, 'httponly' => true, 'samesite' => 'Lax']);
@@ -28,20 +37,23 @@ session_start();
 
 require __DIR__ . '/ia.php';
 require __DIR__ . '/jogo.php';
+require __DIR__ . '/rotas.php';
+require __DIR__ . '/sync.php';
 
 function cfg(string $chave)
 {
     return $GLOBALS['cfg'][$chave] ?? null;
 }
 
+/** Na sincronização, "agora" é o momento em que você fez a ação no celular. */
 function hoje(): string
 {
-    return date('Y-m-d');
+    return substr(agora(), 0, 10);
 }
 
 function agora(): string
 {
-    return date('Y-m-d H:i:s');
+    return $GLOBALS['agora_fixa'] ?? date('Y-m-d H:i:s');
 }
 
 function db(): PDO
@@ -84,6 +96,7 @@ function criar_tabelas(PDO $pdo): void
             id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT NOT NULL, autor TEXT, status TEXT NOT NULL DEFAULT 'quero',
             nota INTEGER, resumo TEXT, opiniao_ia TEXT, atualizado_em TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, papel TEXT NOT NULL, texto TEXT NOT NULL, criado_em TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS versoes (chave TEXT PRIMARY KEY, em TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS tentativas_login (ip TEXT NOT NULL, criado_em TEXT NOT NULL);
     ");
 }
@@ -195,8 +208,25 @@ function tentar_login(string $senha): bool
 
 // ---------------------------------------------------------------- API
 
+/** Resposta de uma rota executada dentro da sincronização. */
+class RespostaSync extends Exception
+{
+    public $dados;
+    public $status;
+
+    public function __construct($dados, int $status)
+    {
+        parent::__construct('resposta');
+        $this->dados = $dados;
+        $this->status = $status;
+    }
+}
+
 function responder($dados, int $status = 200): void
 {
+    if (!empty($GLOBALS['em_sync'])) {
+        throw new RespostaSync($dados, $status);
+    }
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
@@ -211,6 +241,9 @@ function erro(string $mensagem, int $status = 400): void
 
 function entrada(): array
 {
+    if (isset($GLOBALS['entrada_fixa'])) {
+        return $GLOBALS['entrada_fixa'];
+    }
     static $dados = null;
     if ($dados === null) {
         $dados = json_decode((string) file_get_contents('php://input'), true) ?: [];

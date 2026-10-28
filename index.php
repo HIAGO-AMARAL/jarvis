@@ -3,7 +3,7 @@ header('Cache-Control: no-cache');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('X-Robots-Tag: noindex, nofollow');
-$v = '2';
+$v = '3';
 ?><!doctype html>
 <html lang="pt-BR" data-tema="tema-hud">
 <head>

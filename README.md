@@ -16,6 +16,7 @@ Instala no celular e no computador como um app, e sincroniza pelos dois.
 - **Gamificação:** XP, níveis, moedas e loja com 10 temas (HUD, portátil retrô, synthwave, código verde, taverna, abismo, neon city, mangá bizarro, Halloween, mistério), 9 mascotes em pixel art com animações próprias (até 3 andando juntos) e mascotes enviados pelo usuário, títulos, efeitos de partícula e som 8 bits
 - **Spotify:** música tocando agora com controles, top músicas, top artistas, gêneros e histórico (OAuth com PKCE, direto do navegador)
 - **PWA:** instalável, abre rápido com service worker
+- **Offline-first:** longe do servidor, as telas abrem com a última cópia guardada e cada ação vai para uma fila com o horário em que foi feita; quando o servidor aparece, a fila é aplicada em ordem (`?r=sync`). Conflito entre aparelhos: vale a edição mais recente (carimbo por item), e itens criados offline recebem id provisório que o servidor troca pelo definitivo
 
 ## Tecnologias
 
@@ -33,13 +34,24 @@ index.php        # casca do app
 lib/             # banco, login, IA (Gemini) e regras do jogo
 assets/          # app.js, app.css, ícones
 sw.js            # service worker (PWA)
+servidor.php     # roteador para o servidor embutido do PHP
+windows/         # instalar, iniciar e parar o Jarvis no Windows
 data/            # banco SQLite e imagens (não versionado)
 ```
+
+## Rodar no próprio PC (sem hospedagem)
+
+O Jarvis pode morar no seu computador: o PC é o servidor e o celular funciona offline, sincronizando quando alcança o PC.
+
+1. Baixe o projeto e rode `windows/instalar-no-windows.bat`. Ele instala o PHP (winget), faz o Jarvis ligar junto com o Windows e publica o app na sua rede privada do [Tailscale](https://tailscale.com) com HTTPS.
+2. Instale o Tailscale no celular com a mesma conta e abra o endereço `https://NOME-DO-PC.SEU-TAILNET.ts.net` no PC e no celular. Instale como app nos dois.
+
+`servidor.php` faz o papel do `.htaccess` no servidor embutido do PHP (bloqueia `data/`, `lib/` e arquivos internos).
 
 ## Rodar localmente
 
 ```bash
-php -S localhost:8080
+php -S localhost:8080 servidor.php
 ```
 
 Abra `http://localhost:8080`, crie a senha no primeiro acesso e coloque a chave do Gemini em **Ajustes** (grátis em [aistudio.google.com](https://aistudio.google.com)).
