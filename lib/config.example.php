@@ -7,5 +7,7 @@ return [
     // Chave e modelo do Gemini também podem ser definidos na tela Ajustes do app.
     'gemini_chave'  => '',
     'gemini_modelo' => 'gemini-2.5-flash',
+    // Pasta do cofre do Obsidian (mapa do Cérebro). Padrão: a pasta Cerebro ao lado do jarvis.
+    'cofre'         => __DIR__ . '/../../Cerebro',
     'debug'         => false,
 ];

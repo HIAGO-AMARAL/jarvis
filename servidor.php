@@ -24,6 +24,13 @@ if ($caminho === '/' || $caminho === '') {
     require __DIR__ . '/index.php';
     return true;
 }
+if ($caminho === '/sw.js') {
+    // o service worker nunca pode ficar guardado, senão o app não atualiza
+    header('Content-Type: text/javascript; charset=utf-8');
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    readfile(__DIR__ . '/sw.js');
+    return true;
+}
 if (str_ends_with($caminho, '.webmanifest') && is_file(__DIR__ . $caminho)) {
     header('Content-Type: application/manifest+json');
     readfile(__DIR__ . $caminho);

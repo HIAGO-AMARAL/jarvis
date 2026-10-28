@@ -469,6 +469,108 @@ function executar_rota(string $r): void
                 }
                 responder(['ok' => true]);
 
+            // -------- Cérebro (mapa do Obsidian)
+            case 'mapa':
+                responder(cerebro_mapa());
+
+            // -------- Economia
+            case 'economia':
+                $mes = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['mes'] ?? '')) ? $_GET['mes'] : date('Y-m');
+                $st = db()->prepare("SELECT * FROM economia WHERE substr(data, 1, 7) = ? ORDER BY data DESC, id DESC");
+                $st->execute([$mes]);
+                $lanc = $st->fetchAll();
+                $ent = 0.0;
+                $sai = 0.0;
+                $cats = [];
+                foreach ($lanc as $l) {
+                    if ($l['tipo'] === 'entrada') {
+                        $ent += $l['valor'];
+                    } else {
+                        $sai += $l['valor'];
+                        $cats[$l['categoria']] = ($cats[$l['categoria']] ?? 0) + $l['valor'];
+                    }
+                }
+                arsort($cats);
+                $meses = [];
+                for ($i = 5; $i >= 0; $i--) {
+                    $m = date('Y-m', strtotime("$mes-01 -$i months"));
+                    $q = db()->prepare("SELECT COALESCE(SUM(CASE WHEN tipo = 'entrada' THEN valor END), 0) AS e, COALESCE(SUM(CASE WHEN tipo = 'saida' THEN valor END), 0) AS s FROM economia WHERE substr(data, 1, 7) = ?");
+                    $q->execute([$m]);
+                    $meses[] = ['mes' => $m] + $q->fetch();
+                }
+                $cofre = (float) db()->query("SELECT COALESCE(SUM(CASE WHEN tipo = 'guardar' THEN valor ELSE -valor END), 0) FROM cofrinho")->fetchColumn();
+                responder([
+                    'mes' => $mes, 'lancamentos' => $lanc, 'entradas' => round($ent, 2), 'saidas' => round($sai, 2), 'categorias' => $cats, 'meses' => $meses,
+                    'cofrinho' => round($cofre, 2), 'movimentos' => db()->query('SELECT * FROM cofrinho ORDER BY data DESC, id DESC LIMIT 30')->fetchAll(),
+                    'metas' => db()->query('SELECT * FROM metas ORDER BY concluida, valor')->fetchAll(),
+                ]);
+
+            case 'economia_salvar':
+                $valor = dinheiro(entrada()['valor'] ?? 0);
+                $desc = texto('descricao', 120);
+                if ($valor <= 0) {
+                    erro('Coloque um valor maior que zero.');
+                }
+                if ($desc === '') {
+                    erro('Escreva o motivo.');
+                }
+                $tipo = (entrada()['tipo'] ?? '') === 'entrada' ? 'entrada' : 'saida';
+                $cat = preg_replace('/[^a-z_]/', '', (string) (entrada()['categoria'] ?? 'outros')) ?: 'outros';
+                $d = data_valida(entrada()['data'] ?? '') ?: hoje();
+                if ($id > 0) {
+                    db()->prepare('UPDATE economia SET tipo = ?, valor = ?, descricao = ?, categoria = ?, data = ? WHERE id = ?')->execute([$tipo, $valor, $desc, $cat, $d, $id]);
+                } else {
+                    db()->prepare('INSERT INTO economia (tipo, valor, descricao, categoria, data, criado_em) VALUES (?, ?, ?, ?, ?, ?)')->execute([$tipo, $valor, $desc, $cat, $d, agora()]);
+                    $id = (int) db()->lastInsertId();
+                }
+                responder(['ok' => true, 'id' => $id]);
+
+            case 'economia_excluir':
+                db()->prepare('DELETE FROM economia WHERE id = ?')->execute([$id]);
+                responder(['ok' => true]);
+
+            case 'cofrinho_salvar':
+                $valor = dinheiro(entrada()['valor'] ?? 0);
+                if ($valor <= 0) {
+                    erro('Coloque um valor maior que zero.');
+                }
+                $tipo = (entrada()['tipo'] ?? '') === 'retirar' ? 'retirar' : 'guardar';
+                $d = data_valida(entrada()['data'] ?? '') ?: hoje();
+                if ($id > 0) {
+                    db()->prepare('UPDATE cofrinho SET tipo = ?, valor = ?, descricao = ?, data = ? WHERE id = ?')->execute([$tipo, $valor, texto('descricao', 120), $d, $id]);
+                    responder(['ok' => true, 'id' => $id]);
+                }
+                db()->prepare('INSERT INTO cofrinho (tipo, valor, descricao, data, criado_em) VALUES (?, ?, ?, ?, ?)')->execute([$tipo, $valor, texto('descricao', 120), $d, agora()]);
+                $id = (int) db()->lastInsertId();
+                $antes = jogo_status()['nivel'];
+                $ganho = $tipo === 'guardar' ? xp_ganhar(10, 'Guardou dinheiro no porquinho', 'cofrinho:' . $d) : 0;
+                $j = jogo_status();
+                responder(['ok' => true, 'id' => $id, 'xp' => $ganho, 'subiu' => $j['nivel'] > $antes, 'jogo' => $j]);
+
+            case 'cofrinho_excluir':
+                db()->prepare('DELETE FROM cofrinho WHERE id = ?')->execute([$id]);
+                responder(['ok' => true]);
+
+            case 'meta_salvar':
+                $nome = texto('nome', 80);
+                $valor = dinheiro(entrada()['valor'] ?? 0);
+                if ($nome === '' || $valor <= 0) {
+                    erro('Dê um nome e um valor para a meta.');
+                }
+                $icone = preg_replace('/[^a-z]/', '', (string) (entrada()['icone'] ?? 'presente')) ?: 'presente';
+                $feita = !empty(entrada()['concluida']) ? 1 : 0;
+                if ($id > 0) {
+                    db()->prepare('UPDATE metas SET nome = ?, valor = ?, icone = ?, concluida = ? WHERE id = ?')->execute([$nome, $valor, $icone, $feita, $id]);
+                } else {
+                    db()->prepare('INSERT INTO metas (nome, valor, icone, concluida, criado_em) VALUES (?, ?, ?, ?, ?)')->execute([$nome, $valor, $icone, $feita, agora()]);
+                    $id = (int) db()->lastInsertId();
+                }
+                responder(['ok' => true, 'id' => $id]);
+
+            case 'meta_excluir':
+                db()->prepare('DELETE FROM metas WHERE id = ?')->execute([$id]);
+                responder(['ok' => true]);
+
             case 'ifro_atualizar':
                 $n = ifro_atualizar(true);
                 responder(['ok' => true, 'novos' => $n, 'avisos' => pegar_avisos()]);

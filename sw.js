@@ -1,9 +1,9 @@
 // Service worker: guarda a "casca" do app para ele abrir mesmo longe do PC.
 // Os dados (api.php) ficam com o app.js, que guarda a última cópia de cada tela
 // e uma fila de ações para sincronizar.
-const CACHE = 'jarvis-v4';
+const CACHE = 'jarvis-v5';
 const FONTES = 'jarvis-fontes';
-const CASCA = ['./', 'assets/app.css?v=4', 'assets/app.js?v=4', 'manifest.webmanifest', 'assets/icons/icone-192.png', 'assets/icons/icone-512.png'];
+const CASCA = ['./', 'assets/app.css?v=5', 'assets/app.js?v=5', 'manifest.webmanifest', 'assets/icons/icone-192.png', 'assets/icons/icone-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(CASCA)).then(() => self.skipWaiting()));
@@ -23,7 +23,7 @@ self.addEventListener('fetch', (e) => {
   // rede primeiro (com limite de tempo); sem o PC, usa o que está guardado
   const navegacao = e.request.mode === 'navigate';
   e.respondWith(
-    Promise.race([fetch(e.request), new Promise((_, nao) => setTimeout(() => nao(new Error('demorou')), 4000))]).then((r) => {
+    Promise.race([fetch(e.request), new Promise((_, nao) => setTimeout(() => nao(new Error('demorou')), navegacao ? 9000 : 6000))]).then((r) => {
       const copia = r.clone();
       if (r.ok) caches.open(CACHE).then((c) => c.put(navegacao ? './' : e.request, copia));
       return r;

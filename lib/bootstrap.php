@@ -40,6 +40,7 @@ require __DIR__ . '/jogo.php';
 require __DIR__ . '/rotas.php';
 require __DIR__ . '/sync.php';
 require __DIR__ . '/integracoes.php';
+require __DIR__ . '/cerebro.php';
 
 function cfg(string $chave)
 {
@@ -97,6 +98,9 @@ function criar_tabelas(PDO $pdo): void
             id INTEGER PRIMARY KEY AUTOINCREMENT, titulo TEXT NOT NULL, autor TEXT, status TEXT NOT NULL DEFAULT 'quero',
             nota INTEGER, resumo TEXT, opiniao_ia TEXT, atualizado_em TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS chat (id INTEGER PRIMARY KEY AUTOINCREMENT, papel TEXT NOT NULL, texto TEXT NOT NULL, criado_em TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS economia (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, valor REAL NOT NULL, descricao TEXT NOT NULL, categoria TEXT NOT NULL DEFAULT 'outros', data TEXT NOT NULL, criado_em TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS cofrinho (id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, valor REAL NOT NULL, descricao TEXT, data TEXT NOT NULL, criado_em TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS metas (id INTEGER PRIMARY KEY AUTOINCREMENT, nome TEXT NOT NULL, valor REAL NOT NULL, icone TEXT NOT NULL DEFAULT 'presente', concluida INTEGER NOT NULL DEFAULT 0, criado_em TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS ifro_eventos (uid TEXT PRIMARY KEY, tarefa_id INTEGER NOT NULL DEFAULT 0, data TEXT);
         CREATE TABLE IF NOT EXISTS versoes (chave TEXT PRIMARY KEY, em TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS tentativas_login (ip TEXT NOT NULL, criado_em TEXT NOT NULL);
@@ -256,6 +260,16 @@ function entrada(): array
 function texto(string $campo, int $max = 500): string
 {
     return mb_substr(trim((string) (entrada()[$campo] ?? '')), 0, $max);
+}
+
+/** "1.234,56", "1234.5" ou "R$ 50" → número. */
+function dinheiro($v): float
+{
+    $t = preg_replace('/[^\d,.\-]/', '', (string) $v);
+    if (strpos($t, ',') !== false) {
+        $t = str_replace(['.', ','], ['', '.'], $t);
+    }
+    return round((float) $t, 2);
 }
 
 function data_valida(?string $d): ?string

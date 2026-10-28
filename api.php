@@ -11,7 +11,7 @@ $metodo = $_SERVER['REQUEST_METHOD'];
 try {
     // ------------------------------------------------ Sem login
     if ($r === 'estado') {
-        responder(['instalado' => instalado(), 'logado' => logado(), 'csrf' => csrf(), 'nome' => cfg('nome')]);
+        responder(['instalado' => instalado(), 'logado' => logado(), 'csrf' => csrf(), 'nome' => cfg('nome'), 'versao' => require __DIR__ . '/lib/versao.php']);
     }
     if ($r === 'instalar' && $metodo === 'POST') {
         if (instalado()) {

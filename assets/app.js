@@ -30,7 +30,8 @@
   // vale a edição mais recente.
   var ROTAS_OFFLINE = ['tarefa_salvar', 'tarefa_marcar', 'tarefa_excluir', 'habito_marcar', 'habito_salvar', 'habito_excluir',
     'refeicao_marcar', 'refeicao_salvar', 'refeicao_excluir', 'treino_salvar', 'peso_salvar', 'peso_excluir',
-    'estudo_salvar', 'estudo_excluir', 'livro_salvar', 'livro_excluir', 'comida_adicionar', 'comida_excluir', 'metas_salvar'];
+    'estudo_salvar', 'estudo_excluir', 'livro_salvar', 'livro_excluir', 'comida_adicionar', 'comida_excluir', 'metas_salvar',
+    'economia_salvar', 'economia_excluir', 'cofrinho_salvar', 'cofrinho_excluir', 'meta_salvar', 'meta_excluir'];
   var ROTAS_LENTAS = ['chat_enviar', 'livro_opiniao', 'comida_adicionar', 'comida_balanco', 'ia_testar', 'sync', 'pet_enviar'];
   var LS = {
     ler: function (k, padrao) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : padrao; } catch (e) { return padrao; } },
@@ -97,6 +98,7 @@
   function enfileirar(rota, corpo) {
     var idTemp = null;
     if ((/_salvar$/.test(rota) || rota === 'comida_adicionar') && !(+corpo.id) && rota !== 'treino_salvar' && rota !== 'peso_salvar' && rota !== 'metas_salvar') {
+      // (economia, cofrinho e metas também ganham id provisório)
       idTemp = -(Date.now() * 10 + Math.floor(Math.random() * 10));
       corpo.id = idTemp;
     }
@@ -156,6 +158,25 @@
       var dia = c.data || iso(new Date());
       cada('comidas', function (v) { if (dia >= v.inicio && dia <= v.fim) v.comidas.push({ id: c.id, data: dia, descricao: c.descricao, itens: '[]', kcal: 0, proteina: 0, carbo: 0, gordura: 0, pendente: 1 }); });
       xp = 2;
+    } else if (rota === 'economia_salvar' || rota === 'cofrinho_salvar' || rota === 'meta_salvar') {
+      var valor = parseFloat(String(c.valor).replace(/\./g, '').replace(',', '.')) || 0, diaE = c.data || iso(new Date());
+      cada('economia', function (v) {
+        if (rota === 'economia_salvar' && diaE.slice(0, 7) === v.mes) {
+          v.lancamentos = v.lancamentos.filter(function (l) { return +l.id !== +c.id; });
+          v.lancamentos.unshift({ id: c.id, tipo: c.tipo, valor: valor, descricao: c.descricao, categoria: c.categoria, data: diaE });
+          v.entradas = 0; v.saidas = 0;
+          v.lancamentos.forEach(function (l) { if (l.tipo === 'entrada') v.entradas += +l.valor; else v.saidas += +l.valor; });
+        } else if (rota === 'cofrinho_salvar') {
+          v.movimentos.unshift({ id: c.id, tipo: c.tipo, valor: valor, descricao: c.descricao, data: diaE });
+          v.cofrinho += c.tipo === 'retirar' ? -valor : valor;
+        } else if (rota === 'meta_salvar') {
+          v.metas = v.metas.filter(function (m) { return +m.id !== +c.id; });
+          v.metas.push({ id: c.id, nome: c.nome, valor: valor, icone: c.icone, concluida: c.concluida ? 1 : 0 });
+        }
+      });
+      xp = rota === 'cofrinho_salvar' && c.tipo !== 'retirar' ? 10 : 0;
+    } else if (rota === 'economia_excluir' || rota === 'cofrinho_excluir' || rota === 'meta_excluir') {
+      cada('economia', function (v) { var k = { economia_excluir: 'lancamentos', cofrinho_excluir: 'movimentos', meta_excluir: 'metas' }[rota]; tirar(v[k], c.id); });
     } else if (rota === 'comida_excluir') {
       cada('comidas', function (v) { tirar(v.comidas, c.id); });
     }
@@ -250,6 +271,8 @@
         '<path class="l-pagina" d="M12 6.5c1.6-1.1 3.9-1.5 6.5-1.3v12.3c-2.6-.2-4.9.2-6.5 1.3z"/>',
       jardim: '<path class="j-caule" d="M12 21v-9"/><path class="j-folha-a" d="M12 13c-4 0-6-2.5-6-6 3.5 0 6 2 6 6z"/><path class="j-folha-b" d="M12 11c0-3.5 2.5-6 6.5-6 0 4-2.5 6-6.5 6z"/><path d="M7 21h10"/>',
       jarvis: '<circle class="o-nucleo" cx="12" cy="12" r="3.2"/><path class="o-anel" d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5"/><path class="o-anel o-anel-b" d="M12 20.5A8.5 8.5 0 0 1 3.5 12"/><circle class="o-pulso" cx="12" cy="12" r="6"/>',
+      economia: '<g class="pq-n-corpo"><path d="M4.5 12.5a7 5.8 0 0 1 13.4-2.3l2.1-.7v3.6l-1.5.6a6.6 6.6 0 0 1-2 3.1V19h-2.6v-1.6h-4.4V19H6.9v-2.4a5.6 5.6 0 0 1-2.4-4.1z"/><path d="M9.5 8.3h4"/><circle cx="15.3" cy="11.3" r=".5" fill="currentColor"/></g><circle class="pq-n-moeda" cx="11.5" cy="3" r="1.8"/>',
+      cerebro: '<path class="cb-n-fio" d="M12 6v4M12 10L6.5 15M12 10l5.5 5"/><circle class="cb-n-a" cx="12" cy="4.5" r="2.2"/><circle class="cb-n-b" cx="5.5" cy="17" r="2.2"/><circle class="cb-n-c" cx="18.5" cy="17" r="2.2"/><circle class="cb-n-d" cx="12" cy="10" r="1.3"/>',
       loja: '<path d="M5 8h14l-1.2 11.2a1.5 1.5 0 0 1-1.5 1.3H7.7a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M9 10V7a3 3 0 0 1 6 0v3"/><circle class="s-moeda" cx="12" cy="2.5" r="1.6"/>',
       spotify: '<path class="eq eq-1" d="M5 20V12"/><path class="eq eq-2" d="M9.7 20V6"/><path class="eq eq-3" d="M14.3 20V10"/><path class="eq eq-4" d="M19 20V4"/>',
       ajustes: '<g class="g-roda"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.3"/></g>',
@@ -389,7 +412,7 @@
 
   // ---------------------------------------------------------------- casca e HUD
   var ROTAS = [
-    ['hoje', 'Hoje'], ['semana', 'Missões'], ['saude', 'Saúde'], ['estudos', 'Estudos'],
+    ['hoje', 'Hoje'], ['semana', 'Missões'], ['saude', 'Saúde'], ['estudos', 'Estudos'], ['economia', 'Economia'], ['cerebro', 'Cérebro'],
     ['jardim', 'Jardim'], ['jarvis', 'Jarvis'], ['loja', 'Loja'], ['spotify', 'Spotify'], ['ajustes', 'Ajustes']
   ];
   function montarCasca() {
@@ -404,6 +427,7 @@
     mostrarSinc();
     var jogoGuardado = LS.ler('jv_jogo', null);
     if (jogoGuardado) atualizarHud(jogoGuardado);
+    else api('jogo').then(function (r) { atualizarHud(r.jogo); }).catch(function () {});
     $('[data-sair]').addEventListener('click', function () {
       if (fila().length && !confirm('Ainda há ações que não chegaram no PC. Elas ficam guardadas e sincronizam quando você entrar de novo. Sair mesmo?')) return;
       api('sair', {}).then(function () { LS.chaves('jv_c:').forEach(LS.apagar); location.hash = ''; telaLogin(); });
@@ -910,6 +934,447 @@
     });
   };
 
+  // ================================================================ Economia
+  var BRL = function (v) { return (+v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };
+  var ECO_CATS = {
+    entrada: [['trabalho', 'Trabalho'], ['freela', 'Freela'], ['bolsa', 'Bolsa'], ['venda', 'Venda'], ['presente', 'Presente'], ['outros', 'Outros']],
+    saida: [['comida', 'Comida'], ['transporte', 'Transporte'], ['lazer', 'Lazer'], ['jogos', 'Jogos'], ['compras', 'Compras'], ['contas', 'Contas'], ['estudo', 'Estudo'], ['saude', 'Saúde'], ['outros', 'Outros']]
+  };
+  var ECO_ICO = {
+    trabalho: '<path d="M4 8h16v11H4z"/><path d="M9 8V5.5h6V8M4 12.5h16"/>',
+    freela: '<rect x="3.5" y="5" width="17" height="11" rx="1.5"/><path d="M2 19h20M10 9.5l-2 1.5 2 1.5M14 9.5l2 1.5-2 1.5"/>',
+    bolsa: '<path d="M2.5 9L12 4.5 21.5 9 12 13.5z"/><path d="M6.5 11v4.5c1.5 1.4 3.5 2 5.5 2s4-.6 5.5-2V11"/>',
+    venda: '<path d="M3.5 12.5l8-8h7v7l-8 8z"/><circle cx="15" cy="8" r="1.4"/>',
+    presente: '<rect x="4" y="9.5" width="16" height="10.5" rx="1"/><path d="M3 9.5h18v-3H3zM12 6.5V20M12 6.5C10 3 6.5 4 8 6.5M12 6.5c2-3.5 5.5-2.5 4 0"/>',
+    comida: '<path d="M7 3v8M5 3v5a2 2 0 0 0 4 0V3M7 11v10M16 3c-2 1.5-2.5 4-2.5 7H17V21M17 3v7"/>',
+    transporte: '<rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 11h16M8 20v-3M16 20v-3"/><circle cx="8" cy="14" r=".6"/><circle cx="16" cy="14" r=".6"/>',
+    lazer: '<path d="M4 7h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 7v12" stroke-dasharray="2 2"/>',
+    jogos: '<path d="M7 8h10a4 4 0 0 1 4 4.5l-.6 3.5a2.2 2.2 0 0 1-3.8 1L15 15H9l-1.6 2a2.2 2.2 0 0 1-3.8-1L3 12.5A4 4 0 0 1 7 8z"/><path d="M7.5 11v3M6 12.5h3"/><circle cx="15.5" cy="11.5" r=".7"/><circle cx="17" cy="13.5" r=".7"/>',
+    compras: '<path d="M5 8h14l-1 12H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
+    contas: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    estudo: '<path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5zM12 6.5v13"/>',
+    saude: '<path d="M12 20s-7.5-4.3-7.5-10A4.3 4.3 0 0 1 12 7.4 4.3 4.3 0 0 1 19.5 10c0 5.7-7.5 10-7.5 10z"/><path d="M8 12h2l1-2 2 4 1-2h2"/>',
+    outros: '<circle cx="6" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18" cy="12" r="1.3"/>'
+  };
+  var META_ICO = {
+    console: ECO_ICO.jogos,
+    celular: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
+    pc: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8.5 20h7M12 16v4"/>',
+    fone: '<path d="M4 15v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>',
+    moto: '<circle cx="5.5" cy="16.5" r="3.5"/><circle cx="18.5" cy="16.5" r="3.5"/><path d="M5.5 16.5l4-6h5l4 6M12 10.5L10 6.5H7.5M14.5 10.5l1-3h2.5"/>',
+    viagem: '<path d="M10.5 13.5L3 11l1.3-1.3 7.7.6 4.8-4.8a1.6 1.6 0 0 1 2.3 2.3l-4.8 4.8.6 7.7L13.6 21l-2.5-7.5-3.4 3.4.4 2.3-1 1-1.5-3-3-1.5 1-1 2.3.4z"/>',
+    casa: '<path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5M10 20v-5h4v5"/>',
+    roupa: '<path d="M8 3.5L3.5 6.5 5.5 10 7.5 9v11.5h9V9l2 1 2-3.5L16 3.5c-.5 1.5-2 2.5-4 2.5S8.5 5 8 3.5z"/>',
+    livro: '<path d="M5 4.5A1.5 1.5 0 0 1 6.5 3H19v15H6.5A1.5 1.5 0 0 0 5 19.5zM5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>',
+    presente: ECO_ICO.presente
+  };
+  var META_NOMES = { console: 'Videogame', celular: 'Celular', pc: 'Computador', fone: 'Fone', moto: 'Moto', viagem: 'Viagem', casa: 'Casa', roupa: 'Roupa', livro: 'Livro', presente: 'Outro' };
+  function svgIco(paths, cls) { return '<svg class="' + (cls || '') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>'; }
+
+  function porquinhoSvg() {
+    return '<svg class="porquinho" viewBox="0 0 200 160" aria-hidden="true">' +
+      '<defs><linearGradient id="pq-corpo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffb3cf"/><stop offset="1" stop-color="#f472a8"/></linearGradient>' +
+      '<linearGradient id="pq-moeda" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fde68a"/><stop offset="1" stop-color="#f59e0b"/></linearGradient>' +
+      '<radialGradient id="pq-brilho" cx=".35" cy=".3" r=".6"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs>' +
+      '<g class="pq-moeda"><circle cx="100" cy="18" r="13" fill="url(#pq-moeda)" stroke="#b45309" stroke-width="2"/><text x="100" y="23.5" text-anchor="middle" font-size="15" font-weight="800" fill="#92400e" font-family="Inter, sans-serif">$</text></g>' +
+      '<g class="pq-corpo-g">' +
+      '<path d="M150 92c10-4 14 6 8 10-5 3-9-2-6-6 2-3 7-2 8 1" fill="none" stroke="#f472a8" stroke-width="4" stroke-linecap="round"/>' +
+      '<rect x="62" y="118" width="16" height="24" rx="7" fill="#e85d97"/><rect x="122" y="118" width="16" height="24" rx="7" fill="#e85d97"/>' +
+      '<ellipse cx="100" cy="92" rx="56" ry="44" fill="url(#pq-corpo)"/>' +
+      '<rect x="72" y="120" width="16" height="22" rx="7" fill="#f47aab"/><rect x="112" y="120" width="16" height="22" rx="7" fill="#f47aab"/>' +
+      '<path d="M66 58l-6-20 20 10z" fill="#f472a8"/><path d="M68 54l-3-11 10 6z" fill="#fbcfe8"/>' +
+      '<rect x="86" y="49" width="28" height="6" rx="3" fill="#9d174d" opacity=".75"/>' +
+      '<ellipse cx="100" cy="92" rx="56" ry="44" fill="url(#pq-brilho)"/>' +
+      '<ellipse cx="50" cy="96" rx="15" ry="12" fill="#f9a8c9" stroke="#e85d97" stroke-width="2"/>' +
+      '<ellipse cx="45" cy="96" rx="2.6" ry="3.6" fill="#9d174d"/><ellipse cx="55" cy="96" rx="2.6" ry="3.6" fill="#9d174d"/>' +
+      '<g class="pq-olho"><ellipse cx="72" cy="80" rx="4.5" ry="5.5" fill="#3b0a1f"/><circle cx="73.5" cy="78" r="1.6" fill="#fff"/></g>' +
+      '<ellipse cx="66" cy="94" rx="6" ry="3.5" fill="#fb7185" opacity=".45"/>' +
+      '</g><g class="pq-brilhos"><path d="M160 40l2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#fde68a"/><path d="M38 50l1.4 3.4 3.4 1.4-3.4 1.4L38 59.6l-1.4-3.4-3.4-1.4 3.4-1.4z" fill="#fde68a"/></g></svg>';
+  }
+
+  TELAS.economia = function (tela, mes) {
+    tela = novo(tela);
+    mes = mes || TELAS.economia.mes || iso(new Date()).slice(0, 7);
+    TELAS.economia.mes = mes;
+    api('economia&mes=' + mes).then(function (d) {
+      var nomeMes = deIso(mes + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      var saldo = d.entradas - d.saidas;
+      var catNome = {};
+      ECO_CATS.entrada.concat(ECO_CATS.saida).forEach(function (c) { catNome[c[0]] = c[1]; });
+      var maxCat = Math.max.apply(null, [1].concat(Object.keys(d.categorias).map(function (k) { return d.categorias[k]; })));
+      var maxMes = Math.max.apply(null, [1].concat(d.meses.map(function (m) { return Math.max(+m.e, +m.s); })));
+      var metasAbertas = d.metas.filter(function (m) { return !+m.concluida; });
+      var card = function (cls, ico, rot, val, sub) { return '<div class="eco-card ' + cls + '">' + svgIco(ico, 'eco-card-ico') + '<span>' + rot + '</span><strong>' + val + '</strong>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>'; };
+      tela.innerHTML =
+        '<div class="cabeca-pagina"><div><h1>Economia</h1><p>Seu dinheiro do mês, o porquinho e as metas.</p></div>' +
+        '<div class="linha"><button class="btn-ico" data-mes="-1" aria-label="Mês anterior">' + ico('esq') + '</button><span class="eco-mes">' + nomeMes + '</span><button class="btn-ico" data-mes="1" aria-label="Próximo mês">' + ico('dir') + '</button></div></div>' +
+        '<div class="eco-cards">' +
+        card('saldo ' + (saldo < 0 ? 'neg' : ''), '<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>', 'Saldo do mês', BRL(saldo), saldo < 0 ? 'gastou mais do que ganhou' : 'sobrou neste mês') +
+        card('entrada', '<path d="M12 19V5M6 11l6-6 6 6"/>', 'Entrou', BRL(d.entradas), d.lancamentos.filter(function (l) { return l.tipo === 'entrada'; }).length + ' lançamentos') +
+        card('saida', '<path d="M12 5v14M6 13l6 6 6-6"/>', 'Saiu', BRL(d.saidas), d.lancamentos.filter(function (l) { return l.tipo === 'saida'; }).length + ' lançamentos') +
+        card('cofre', '<path d="M5 11a7 6 0 0 1 13 0v4l-2 1v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11z"/><path d="M10 6.5h4"/><circle cx="15" cy="11" r=".6"/>', 'No porquinho', BRL(d.cofrinho), 'guardado no banco') +
+        '</div>' +
+        '<div class="grade">' +
+        // porquinho
+        '<section class="painel c-5 pq-painel"><header><h2 class="titulo-pixel">Porquinho</h2><span class="mini">+10 XP por dia que guardar</span></header>' +
+        '<div class="pq-palco">' + porquinhoSvg() + '<div class="pq-valor"><span>Guardado</span><strong data-pq-valor>' + BRL(d.cofrinho) + '</strong></div></div>' +
+        '<form data-pq class="pq-form"><div class="pq-tipo"><button type="button" class="ativo" data-pq-tipo="guardar">Guardei</button><button type="button" data-pq-tipo="retirar">Tirei</button></div>' +
+        '<div class="linha"><label class="campo cresce eco-reais"><span class="sr">Valor</span><input name="valor" inputmode="decimal" placeholder="0,00" required></label><button class="btn cheio">Confirmar</button></div>' +
+        '<input name="descricao" placeholder="Motivo (opcional)"></form>' +
+        '<p class="mini" style="margin:10px 0 0">Aqui é só a anotação: o dinheiro de verdade fica no seu banco.</p>' +
+        '<ul class="lista pq-hist">' + (d.movimentos.slice(0, 5).map(function (m) { return '<li class="item"><span class="eco-sinal ' + (m.tipo === 'guardar' ? 'mais' : 'menos') + '">' + (m.tipo === 'guardar' ? '+' : '−') + '</span><div class="item-titulo">' + esc(m.descricao || (m.tipo === 'guardar' ? 'Guardei' : 'Tirei')) + '<small>' + br(m.data) + '</small></div><strong class="eco-valor ' + (m.tipo === 'guardar' ? 'mais' : 'menos') + '">' + BRL(m.valor) + '</strong><button class="btn-ico" data-del-pq="' + m.id + '" aria-label="Apagar">' + ico('lixo') + '</button></li>'; }).join('') || '<li class="vazio">Nada guardado ainda.</li>') + '</ul></section>' +
+        // metas
+        '<section class="painel c-7"><header><h2 class="titulo-pixel">Metas</h2><button class="btn pequeno" data-meta="0">' + ico('mais') + ' Nova meta</button></header>' +
+        (metasAbertas.length ? '<div class="metas">' + metasAbertas.map(function (m) {
+          var pct = Math.min(100, d.cofrinho / m.valor * 100), falta = Math.max(0, m.valor - d.cofrinho);
+          return '<div class="meta ' + (falta <= 0 ? 'pronta' : '') + '" data-meta="' + m.id + '"><div class="meta-ico">' + svgIco(META_ICO[m.icone] || META_ICO.presente) + '</div>' +
+            '<div class="meta-info"><div class="meta-topo"><strong>' + esc(m.nome) + '</strong><span>' + BRL(m.valor) + '</span></div>' +
+            '<div class="meta-barra"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+            '<div class="meta-pe"><span>' + Math.floor(pct) + '%</span><span>' + (falta <= 0 ? 'Já dá pra comprar!' : 'Faltam <b>' + BRL(falta) + '</b>') + '</span></div></div></div>';
+        }).join('') + '</div>' : '<div class="vazio">Crie uma meta, tipo um PlayStation 5, e veja quanto falta.</div>') +
+        (d.metas.length > metasAbertas.length ? '<p class="mini" style="margin-top:12px">Conquistadas: ' + d.metas.filter(function (m) { return +m.concluida; }).map(function (m) { return esc(m.nome); }).join(', ') + '</p>' : '') + '</section>' +
+        // lançamento
+        '<section class="painel c-5"><header><h2 class="titulo-pixel">Anotar</h2></header>' +
+        '<form data-lanc class="form-pilha" style="display:grid;gap:12px"><div class="pq-tipo eco-tipo"><button type="button" class="ativo" data-tipo="entrada">Ganhei</button><button type="button" data-tipo="saida">Gastei</button></div>' +
+        '<div class="form-grade"><label class="campo">Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00" required></label><label class="campo">Dia<input type="date" name="data" value="' + (iso(new Date()).slice(0, 7) === mes ? iso(new Date()) : mes + '-01') + '"></label></div>' +
+        '<label class="campo">Por quê?<input name="descricao" placeholder="Ex.: site do Jhonattas, lanche, jogo na Steam" required></label>' +
+        '<div class="eco-cats" data-cats></div><button class="btn cheio">Salvar</button></form></section>' +
+        // extrato
+        '<section class="painel c-7"><header><h2 class="titulo-pixel">Extrato de ' + nomeMes.split(' ')[0] + '</h2></header><ul class="lista">' +
+        (d.lancamentos.length ? d.lancamentos.map(function (l) {
+          var e = l.tipo === 'entrada';
+          return '<li class="item"><span class="eco-cat-ico ' + (e ? 'mais' : 'menos') + '">' + svgIco(ECO_ICO[l.categoria] || ECO_ICO.outros) + '</span><div class="item-titulo">' + esc(l.descricao) + '<small>' + br(l.data) + ' · ' + (catNome[l.categoria] || 'Outros') + '</small></div><strong class="eco-valor ' + (e ? 'mais' : 'menos') + '">' + (e ? '+ ' : '− ') + BRL(l.valor) + '</strong><button class="btn-ico" data-del-lanc="' + l.id + '" aria-label="Apagar">' + ico('lixo') + '</button></li>';
+        }).join('') : '<li class="vazio">Nada anotado neste mês.</li>') + '</ul></section>' +
+        // gráficos
+        '<section class="painel c-6"><header><h2 class="titulo-pixel">Para onde foi</h2></header>' +
+        (Object.keys(d.categorias).length ? '<div class="eco-barras">' + Object.keys(d.categorias).map(function (k) { return '<div><span class="eco-cat-ico menos">' + svgIco(ECO_ICO[k] || ECO_ICO.outros) + '</span><span>' + (catNome[k] || k) + '</span><i><b style="width:' + (d.categorias[k] / maxCat * 100).toFixed(1) + '%"></b></i><strong>' + BRL(d.categorias[k]) + '</strong></div>'; }).join('') + '</div>' : '<div class="vazio">Sem gastos neste mês.</div>') + '</section>' +
+        '<section class="painel c-6"><header><h2 class="titulo-pixel">Últimos 6 meses</h2><span class="mini"><i class="leg mais"></i>entrou <i class="leg menos"></i>saiu</span></header><div class="eco-meses">' +
+        d.meses.map(function (m) { return '<div><div class="par"><i class="mais" style="height:' + (m.e / maxMes * 100).toFixed(1) + '%" title="Entrou ' + BRL(m.e) + '"></i><i class="menos" style="height:' + (m.s / maxMes * 100).toFixed(1) + '%" title="Saiu ' + BRL(m.s) + '"></i></div><span>' + deIso(m.mes + '-01').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') + '</span></div>'; }).join('') + '</div></section>' +
+        '</div>';
+
+      var recarregar = function () { TELAS.economia(tela, mes); };
+      $$('[data-mes]', tela).forEach(function (b) { b.addEventListener('click', function () { var dt = deIso(mes + '-01'); dt.setMonth(dt.getMonth() + +b.dataset.mes); TELAS.economia(tela, iso(dt).slice(0, 7)); }); });
+      // porquinho
+      var fp = $('[data-pq]', tela), pqTipo = 'guardar';
+      $$('[data-pq-tipo]', fp).forEach(function (b) { b.addEventListener('click', function () { pqTipo = b.dataset.pqTipo; $$('[data-pq-tipo]', fp).forEach(function (x) { x.classList.toggle('ativo', x === b); }); }); });
+      fp.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var palco = $('.pq-palco', tela);
+        api('cofrinho_salvar', { tipo: pqTipo, valor: fp.valor.value, descricao: fp.descricao.value }).then(function (r) {
+          palco.classList.remove('caiu', 'saiu'); void palco.offsetWidth; palco.classList.add(pqTipo === 'guardar' ? 'caiu' : 'saiu');
+          if (pqTipo === 'guardar') { recompensa(r, $('button.cheio', fp)); bip([988, 1319]); }
+          setTimeout(recarregar, 1300);
+        });
+      });
+      $$('[data-del-pq]', tela).forEach(function (b) { b.addEventListener('click', function () { api('cofrinho_excluir', { id: +b.dataset.delPq }).then(recarregar); }); });
+      // lançamento
+      var fl = $('[data-lanc]', tela), tipo = 'entrada', cat = 'trabalho';
+      var desenharCats = function () {
+        if (!ECO_CATS[tipo].some(function (c) { return c[0] === cat; })) cat = ECO_CATS[tipo][0][0];
+        $('[data-cats]', fl).innerHTML = ECO_CATS[tipo].map(function (c) { return '<button type="button" class="eco-cat ' + (c[0] === cat ? 'ativo' : '') + '" data-cat="' + c[0] + '">' + svgIco(ECO_ICO[c[0]]) + '<span>' + c[1] + '</span></button>'; }).join('');
+      };
+      desenharCats();
+      $('[data-cats]', fl).addEventListener('click', function (e) { var b = e.target.closest('[data-cat]'); if (b) { cat = b.dataset.cat; desenharCats(); } });
+      $$('[data-tipo]', fl).forEach(function (b) { b.addEventListener('click', function () { tipo = b.dataset.tipo; $$('[data-tipo]', fl).forEach(function (x) { x.classList.toggle('ativo', x === b); }); fl.classList.toggle('gasto', tipo === 'saida'); desenharCats(); }); });
+      fl.addEventListener('submit', function (e) { e.preventDefault(); api('economia_salvar', { tipo: tipo, valor: fl.valor.value, descricao: fl.descricao.value, categoria: cat, data: fl.data.value }).then(function () { toast(tipo === 'entrada' ? 'Entrada anotada.' : 'Gasto anotado.'); recarregar(); }); });
+      $$('[data-del-lanc]', tela).forEach(function (b) { b.addEventListener('click', function () { api('economia_excluir', { id: +b.dataset.delLanc }).then(recarregar); }); });
+      // metas
+      $$('[data-meta]', tela).forEach(function (el) {
+        el.addEventListener('click', function () {
+          var id = +el.dataset.meta, m = d.metas.filter(function (x) { return +x.id === id; })[0] || { nome: '', valor: '', icone: 'console' };
+          var form = modal('<h2 class="titulo-pixel">' + (id ? 'Editar meta' : 'Nova meta') + '</h2>' +
+            '<div class="form-grade"><label class="campo">O que quer comprar<input name="nome" value="' + esc(m.nome) + '" placeholder="PlayStation 5"></label><label class="campo">Preço (R$)<input name="valor" inputmode="decimal" value="' + (m.valor ? String(m.valor).replace('.', ',') : '') + '" placeholder="3.799,00"></label></div>' +
+            '<div class="campo"><span>Ícone</span><div class="meta-icones">' + Object.keys(META_ICO).map(function (k) { return '<button type="button" data-ic="' + k + '" class="' + (k === m.icone ? 'ativo' : '') + '" title="' + META_NOMES[k] + '">' + svgIco(META_ICO[k]) + '</button>'; }).join('') + '</div></div>' +
+            (id ? '<label class="linha" style="gap:8px"><input type="checkbox" name="feita" style="width:auto;min-height:0"' + (+m.concluida ? ' checked' : '') + '> Já comprei</label>' : ''),
+            [id ? ['Excluir', 'perigo', function () { return api('meta_excluir', { id: id }).then(recarregar); }] : null,
+             ['Salvar', 'cheio', function (f) { return api('meta_salvar', { id: id, nome: f.nome.value, valor: f.valor.value, icone: icone, concluida: f.feita ? f.feita.checked : false }).then(recarregar); }]]);
+          var icone = m.icone;
+          $$('[data-ic]', form).forEach(function (b) { b.addEventListener('click', function () { icone = b.dataset.ic; $$('[data-ic]', form).forEach(function (x) { x.classList.toggle('ativo', x === b); }); }); });
+        });
+      });
+    });
+  };
+
+  // ================================================================ Cérebro (mapa do Obsidian)
+  var CB_ICO = {
+    cerebro: '<path d="M9 4.5a3 3 0 0 0-3 3 3 3 0 0 0-2 5.2A3.2 3.2 0 0 0 7 18a2.5 2.5 0 0 0 5 .5V5.5a2.4 2.4 0 0 0-3-1zM15 4.5a3 3 0 0 1 3 3 3 3 0 0 1 2 5.2A3.2 3.2 0 0 1 17 18a2.5 2.5 0 0 1-5 .5"/><path d="M9 9.5c1 0 2 .7 2 2M15 9.5c-1 0-2 .7-2 2M8 14c1 0 1.8.4 2.3 1"/>',
+    jogo: ECO_ICO.jogos,
+    coruja: '<path d="M6 5l2 2.5M18 5l-2 2.5"/><path d="M5.5 9a6.5 6.5 0 0 1 13 0v6a6.5 6.5 0 0 1-13 0z"/><circle cx="9.3" cy="10" r="2.2"/><circle cx="14.7" cy="10" r="2.2"/><circle cx="9.3" cy="10" r=".6" fill="currentColor"/><circle cx="14.7" cy="10" r=".6" fill="currentColor"/><path d="M11.2 13l.8 1.3.8-1.3M9 17.5c1.8 1 4.2 1 6 0"/>',
+    orbe: '<circle cx="12" cy="12" r="3.2"/><path d="M12 3.5a8.5 8.5 0 0 1 8.5 8.5M12 20.5A8.5 8.5 0 0 1 3.5 12"/>',
+    servidor: '<rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/><path d="M7.5 7.5h.01M7.5 16.5h.01M11 7.5h5M11 16.5h5"/>',
+    robo: '<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4.5V8M9.5 13h.01M14.5 13h.01M9.5 16h5M3 12.5v3M21 12.5v3"/><circle cx="12" cy="4" r="1"/>',
+    cubo: '<path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/>',
+    tesoura: '<circle cx="6.5" cy="17.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/><path d="M8.3 15.7L18 4M15.7 15.7L6 4"/>',
+    cafe: '<path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5z"/><path d="M16 10.5h1.5a2.5 2.5 0 0 1 0 5H16M8 3.5c-.8 1 .8 2 0 3M12 3.5c-.8 1 .8 2 0 3"/>',
+    doce: '<path d="M6 11h12l-1.5 9h-9z"/><path d="M6 11a6 6 0 0 1 12 0"/><path d="M9.5 14l.5 6M14.5 14l-.5 6"/><circle cx="12" cy="4" r="1.2"/>',
+    globo: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.3 2.5 3.4 5.3 3.4 8.5s-1.1 6-3.4 8.5c-2.3-2.5-3.4-5.3-3.4-8.5s1.1-6 3.4-8.5z"/>',
+    maleta: ECO_ICO.trabalho,
+    camadas: '<path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12l8.5 4.5 8.5-4.5M3.5 16l8.5 4.5 8.5-4.5"/>',
+    foguete: '<path d="M12 15.5l-3.5-3.5c1.4-4.4 4.3-7.6 10-8.5-.9 5.7-4.1 8.6-8.5 10z"/><circle cx="14.5" cy="9.5" r="1.4"/><path d="M8.5 12H5l2.5-3.5h3.2M12 15.5V19l3.5-2.5v-3.2M7 17c-1.5.5-2.2 1.7-2.5 3.5 1.8-.3 3-1 3.5-2.5"/>',
+    haltere: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+    capelo: ECO_ICO.bolsa,
+    lampada: '<path d="M9 17.5h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V17h5v-1.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/>',
+    modelo: '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/>',
+    caixa: '<path d="M3.5 13.5l2.5-8h12l2.5 8V19a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19z"/><path d="M3.5 13.5h5l1 2.5h5l1-2.5h5"/>',
+    livro: META_ICO.livro,
+    lua: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/>',
+    mapa: '<path d="M12 21s-6.5-5.4-6.5-11a6.5 6.5 0 0 1 13 0c0 5.6-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>',
+    nota: '<path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5M9 13h7M9 16.5h5"/>'
+  };
+  var CB_CORES = ['#7c8cff', '#34d399', '#fbbf24', '#f472b6', '#38bdf8', '#a78bfa', '#fb923c', '#2dd4bf', '#f87171'];
+  var CB = { recolhidos: LS.ler('jv_cb_recolhidos', {}), arrastes: LS.ler('jv_cb_arrastes', {}), vista: null };
+
+  TELAS.cerebro = function (tela) {
+    tela = novo(tela);
+    api('mapa').then(function (d) {
+      tela.innerHTML = '<div class="cabeca-pagina"><div><h1>Cérebro</h1><p>Seus projetos, estudos e livros do Obsidian, todos ligados. Arraste para mover, role para dar zoom.</p></div>' +
+        '<div class="linha cb-ferr"><label class="cb-busca">' + svgIco('<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>') + '<input placeholder="Procurar no mapa" data-cb-busca></label>' +
+        '<button class="btn-ico" data-cb="menos" aria-label="Diminuir">' + svgIco('<path d="M6 12h12"/>') + '</button><button class="btn-ico" data-cb="mais" aria-label="Aumentar">' + ico('mais') + '</button>' +
+        '<button class="btn pequeno" data-cb="centro">Centralizar</button><button class="btn pequeno" data-cb="abrir">Abrir tudo</button></div></div>' +
+        (d.cofre ? '' : '<p class="opiniao">Não achei a pasta do Obsidian em <code>' + esc(d.pasta) + '</code>. Mostrando só os livros.</p>') +
+        '<section class="cb-palco" data-cb-palco><svg class="cb-svg" data-cb-svg><defs>' +
+        '<filter id="cb-sombra" x="-20%" y="-40%" width="140%" height="180%"><feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000" flood-opacity=".35"/></filter></defs>' +
+        '<g data-cb-mundo><g data-cb-fios></g><g data-cb-nos></g></g></svg>' +
+        '<aside class="cb-detalhe" data-cb-detalhe hidden></aside>' +
+        '<div class="cb-legenda"><span><i class="ok"></i>feito / lido</span><span><i class="and"></i>em andamento / lendo</span><span><i class="pau"></i>pausado</span><span><i class="nao"></i>ainda não leu</span></div></section>';
+      mapaCerebro(tela, d);
+    });
+  };
+
+  function mapaCerebro(tela, d) {
+    var svg = $('[data-cb-svg]', tela), mundo = $('[data-cb-mundo]', tela), gFios = $('[data-cb-fios]', tela), gNos = $('[data-cb-nos]', tela), palco = $('[data-cb-palco]', tela), det = $('[data-cb-detalhe]', tela);
+    var NS = 'http://www.w3.org/2000/svg', porId = {}, filhos = {}, pai = {};
+    d.nos.forEach(function (n) { porId[n.id] = n; filhos[n.id] = []; });
+    d.arestas.forEach(function (a) { filhos[a[0]].push(a[1]); pai[a[1]] = a[0]; });
+    var raiz = d.nos[0];
+    // cor por ramo
+    filhos[raiz.id].forEach(function (id, i) { var cor = CB_CORES[i % CB_CORES.length]; (function pinta(x) { porId[x].cor = cor; filhos[x].forEach(pinta); })(id); });
+    raiz.cor = '#a5b4fc';
+    var medidor = document.createElement('canvas').getContext('2d');
+    var largura = function (n) { medidor.font = (n.tipo === 'raiz' ? '700 17px' : n.tipo === 'ramo' ? '600 15px' : '500 13.5px') + ' Inter, system-ui, sans-serif'; return Math.ceil(medidor.measureText(n.nome).width) + (n.tipo === 'raiz' ? 76 : n.tipo === 'ramo' ? 66 : 58) + (n.livro || n.status ? 26 : 0); };
+    var estreito = function () { return palco.clientWidth < 720; };
+    var selecionado = null, vista = CB.vista || null;
+
+    function layout() {
+      var pos = {}, ROW = 54, colX = estreito() ? [0, 70, 300, 540] : [0, 250, 560, 860];
+      pos[raiz.id] = { x: 0, y: 0 };
+      var cursor = { '-1': 110, '1': 110 };
+      filhos[raiz.id].forEach(function (rid) {
+        var lado = estreito() ? 1 : (cursor['-1'] < cursor['1'] ? -1 : 1);
+        var y = cursor[lado], linhas = 0;
+        var galhos = CB.recolhidos[rid] ? [] : filhos[rid];
+        var yg = y + (galhos.length ? 46 : 0);
+        galhos.forEach(function (gid) {
+          var folhas = CB.recolhidos[gid] ? [] : filhos[gid];
+          pos[gid] = { x: lado * colX[2], y: yg, lado: lado };
+          folhas.forEach(function (fid, k) { pos[fid] = { x: lado * colX[3], y: yg + k * ROW, lado: lado }; });
+          var n = Math.max(1, folhas.length);
+          yg += n * ROW + (folhas.length > 1 ? 10 : 0);
+          linhas += n;
+        });
+        pos[rid] = { x: lado * colX[1], y: y, lado: lado };
+        cursor[lado] = Math.max(y + 70, yg) + 36;
+      });
+      Object.keys(pos).forEach(function (id) { var a = CB.arrastes[id]; if (a) { pos[id].x += a[0]; pos[id].y += a[1]; } });
+      return pos;
+    }
+
+    function curva(a, b, lado) {
+      if (a.x === 0 && a.y === 0 && b.lado !== undefined && porId && false) return '';
+      var mx = (a.x + b.x) / 2;
+      return 'M' + a.x + ',' + a.y + ' C' + mx + ',' + a.y + ' ' + mx + ',' + b.y + ' ' + b.x + ',' + b.y;
+    }
+
+    var pos, elNo = {}, elFio = {};
+    function desenhar(animar) {
+      pos = layout();
+      gFios.innerHTML = ''; gNos.innerHTML = ''; elNo = {}; elFio = {};
+      var visiveis = Object.keys(pos);
+      // espinha (corrente central)
+      var ramos = filhos[raiz.id].filter(function (id) { return pos[id]; });
+      var maxY = Math.max.apply(null, [0].concat(ramos.map(function (id) { return pos[id].y; })));
+      var esp = document.createElementNS(NS, 'path');
+      esp.setAttribute('d', 'M0,0 L0,' + maxY);
+      esp.setAttribute('class', 'cb-espinha');
+      gFios.appendChild(esp);
+      ramos.forEach(function (id) { var c = document.createElementNS(NS, 'circle'); c.setAttribute('cx', 0); c.setAttribute('cy', pos[id].y); c.setAttribute('r', 4.5); c.setAttribute('class', 'cb-elo'); c.style.fill = porId[id].cor; gFios.appendChild(c); });
+      // fios da árvore
+      d.arestas.forEach(function (a) {
+        if (!pos[a[0]] || !pos[a[1]]) return;
+        var de = a[0] === raiz.id ? { x: 0, y: pos[a[1]].y } : pos[a[0]];
+        var p = document.createElementNS(NS, 'path');
+        var largDe = a[0] === raiz.id ? 0 : largura(porId[a[0]]) / 2 * (pos[a[1]].lado || 1);
+        var origem = { x: de.x + largDe, y: de.y }, destino = { x: pos[a[1]].x - largura(porId[a[1]]) / 2 * (pos[a[1]].lado || 1), y: pos[a[1]].y };
+        p.setAttribute('d', curva(origem, destino));
+        p.setAttribute('class', 'cb-fio');
+        p.style.stroke = porId[a[1]].cor;
+        gFios.appendChild(p);
+        elFio[a[1]] = { el: p, de: a[0] };
+      });
+      // ligações extras ([[links]])
+      d.extras.forEach(function (x) {
+        if (!pos[x[0]] || !pos[x[1]]) return;
+        var a = pos[x[0]], b = pos[x[1]], p = document.createElementNS(NS, 'path');
+        var meio = (a.x + b.x) / 2 + (Math.abs(a.y - b.y) > 200 ? (a.lado || 1) * 120 : 0);
+        p.setAttribute('d', 'M' + a.x + ',' + a.y + ' Q' + meio + ',' + ((a.y + b.y) / 2) + ' ' + b.x + ',' + b.y);
+        p.setAttribute('class', 'cb-extra');
+        p.dataset.a = x[0]; p.dataset.b = x[1];
+        gFios.insertBefore(p, gFios.firstChild);
+      });
+      // nós
+      visiveis.forEach(function (id, ordem) {
+        var n = porId[id], p = pos[id], w = largura(n), h = n.tipo === 'raiz' ? 54 : n.tipo === 'ramo' ? 44 : 38;
+        var g = document.createElementNS(NS, 'g');
+        g.setAttribute('class', 'cb-no cb-' + n.tipo + (selecionado === id ? ' sel' : ''));
+        g.setAttribute('transform', 'translate(' + p.x + ',' + p.y + ')');
+        g.dataset.id = id;
+        if (animar) g.style.animationDelay = Math.min(ordem * 18, 700) + 'ms';
+        var qtd = filhos[id].length, recolhido = CB.recolhidos[id];
+        var marcador = '';
+        if (n.livro) marcador = n.livro === 'lido' ? '<g class="cb-marca ok"><circle r="9"/><path d="M-3.8 .2l2.6 2.6 5-5.2"/></g>' : n.livro === 'lendo' ? '<g class="cb-marca and"><circle r="9"/><path d="M-4 0h8"/></g>' : '<g class="cb-marca nao"><circle r="9"/><path d="M-3 -3l6 6M3 -3l-6 6"/></g>';
+        else if (n.status) marcador = n.status === 'ok' ? '<g class="cb-marca ok"><circle r="9"/><path d="M-3.8 .2l2.6 2.6 5-5.2"/></g>' : n.status === 'pausado' ? '<g class="cb-marca pau"><circle r="9"/><path d="M-2 -3.5v7M2 -3.5v7"/></g>' : n.status === 'ideia' ? '<g class="cb-marca ideia"><circle r="9"/><path d="M0 -4.5l1.2 3.3 3.3 1.2-3.3 1.2L0 4.5l-1.2-3.3-3.3-1.2 3.3-1.2z" fill="currentColor"/></g>' : '<g class="cb-marca and"><circle r="9"/><path d="M-4 0h8"/></g>';
+        var ic = (n.tipo === 'raiz' ? 30 : 24), icx = -w / 2 + h / 2;
+        g.innerHTML = '<rect class="cb-caixa" x="' + (-w / 2) + '" y="' + (-h / 2) + '" width="' + w + '" height="' + h + '" rx="' + (h / 2) + '" filter="url(#cb-sombra)"/>' +
+          '<circle class="cb-bola" cx="' + icx + '" cy="0" r="' + (h / 2 - 5) + '" style="fill:' + n.cor + '22;stroke:' + n.cor + '66"/>' +
+          '<svg class="cb-ico" x="' + (icx - ic / 2 + 3) + '" y="' + (-ic / 2 + 3) + '" width="' + (ic - 6) + '" height="' + (ic - 6) + '" viewBox="0 0 24 24" fill="none" stroke="' + n.cor + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + (CB_ICO[n.icone] || CB_ICO.nota) + '</svg>' +
+          '<text class="cb-texto" x="' + (icx + h / 2 + 4) + '" y="0" dominant-baseline="central">' + esc(n.nome) + '</text>' +
+          (marcador ? '<g transform="translate(' + (w / 2 - 20) + ',0)">' + marcador + '</g>' : '') +
+          (qtd && n.tipo !== 'raiz' ? '<g class="cb-contador" data-recolher="' + id + '" transform="translate(' + ((p.lado || 1) * (w / 2 + 14)) + ',0)"><circle r="11"/><text dominant-baseline="central" text-anchor="middle">' + (recolhido ? '+' + qtd : '−') + '</text></g>' : '');
+        gNos.appendChild(g);
+        elNo[id] = g;
+      });
+      marcarCaminho();
+    }
+
+    function marcarCaminho() {
+      $$('.cb-fio', gFios).forEach(function (f) { f.classList.remove('ativo'); });
+      $$('.cb-no', gNos).forEach(function (g) { g.classList.toggle('sel', g.dataset.id === selecionado); });
+      var caminho = {};
+      if (selecionado) {
+        var x = selecionado;
+        while (x) { caminho[x] = true; if (elFio[x]) elFio[x].el.classList.add('ativo'); x = pai[x]; }
+        (function desce(y) { filhos[y].forEach(function (f) { caminho[f] = true; if (elFio[f]) elFio[f].el.classList.add('ativo'); desce(f); }); })(selecionado);
+      }
+      $$('.cb-extra', gFios).forEach(function (x) {
+        var liga = !!selecionado && (x.dataset.a === selecionado || x.dataset.b === selecionado);
+        x.classList.toggle('ativo', liga);
+        if (liga) { caminho[x.dataset.a] = true; caminho[x.dataset.b] = true; }
+      });
+      $$('.cb-no', gNos).forEach(function (g) { g.classList.toggle('apagado', !!selecionado && !caminho[g.dataset.id]); });
+    }
+
+    // ---------- câmera: arrastar, zoom e pinça
+    var cam = vista || { x: 0, y: 0, k: 1 };
+    function aplicarCam() { mundo.setAttribute('transform', 'translate(' + cam.x + ',' + cam.y + ') scale(' + cam.k + ')'); CB.vista = cam; }
+    function centralizar() {
+      var b = mundo.getBBox(), W = palco.clientWidth, H = palco.clientHeight;
+      var k = Math.min(1.1, Math.max(.35, (W - 40) / (estreito() ? Math.min(b.width, 620) : b.width)));
+      cam = { k: k, x: estreito() ? 24 - (b.x + 30) * k + 10 : W / 2 - (b.x + b.width / 2) * k, y: 70 - 0 };
+      aplicarCam();
+    }
+    function zoom(f, cx, cy) {
+      var k = Math.min(2.5, Math.max(.25, cam.k * f));
+      cx = cx == null ? palco.clientWidth / 2 : cx; cy = cy == null ? palco.clientHeight / 2 : cy;
+      cam.x = cx - (cx - cam.x) * (k / cam.k); cam.y = cy - (cy - cam.y) * (k / cam.k); cam.k = k; aplicarCam();
+    }
+    var ponteiros = {}, arrasto = null, pinca = null;
+    svg.addEventListener('pointerdown', function (e) {
+      ponteiros[e.pointerId] = { x: e.clientX, y: e.clientY };
+      svg.setPointerCapture(e.pointerId);
+      var ids = Object.keys(ponteiros);
+      if (ids.length === 2) {
+        var a = ponteiros[ids[0]], b = ponteiros[ids[1]];
+        pinca = { dist: Math.hypot(a.x - b.x, a.y - b.y), k: cam.k }; arrasto = null; return;
+      }
+      var no = e.target.closest('.cb-no'), cont = e.target.closest('[data-recolher]');
+      arrasto = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, no: no && !cont ? no.dataset.id : null, cont: cont ? cont.dataset.recolher : null, moveu: false, base: no ? (CB.arrastes[no.dataset.id] || [0, 0]).slice() : null };
+    });
+    svg.addEventListener('pointermove', function (e) {
+      if (!ponteiros[e.pointerId]) return;
+      ponteiros[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (pinca) {
+        var ids = Object.keys(ponteiros); if (ids.length < 2) return;
+        var a = ponteiros[ids[0]], b = ponteiros[ids[1]], r = palco.getBoundingClientRect();
+        zoom(pinca.k * Math.hypot(a.x - b.x, a.y - b.y) / pinca.dist / cam.k, (a.x + b.x) / 2 - r.left, (a.y + b.y) / 2 - r.top);
+        return;
+      }
+      if (!arrasto) return;
+      var dx = e.clientX - arrasto.x, dy = e.clientY - arrasto.y;
+      if (Math.abs(dx) + Math.abs(dy) > 4) arrasto.moveu = true;
+      if (!arrasto.moveu) return;
+      if (arrasto.no && arrasto.no !== raiz.id) {
+        CB.arrastes[arrasto.no] = [arrasto.base[0] + dx / cam.k, arrasto.base[1] + dy / cam.k];
+        moverNo(arrasto.no);
+      } else { cam.x = arrasto.cx + dx; cam.y = arrasto.cy + dy; aplicarCam(); }
+    });
+    var soltar = function (e) {
+      delete ponteiros[e.pointerId];
+      if (pinca) { if (Object.keys(ponteiros).length < 2) pinca = null; return; }
+      if (!arrasto) return;
+      var a = arrasto; arrasto = null;
+      if (a.moveu) { if (a.no) LS.gravar('jv_cb_arrastes', CB.arrastes); return; }
+      if (a.cont) { CB.recolhidos[a.cont] = !CB.recolhidos[a.cont]; LS.gravar('jv_cb_recolhidos', CB.recolhidos); desenhar(false); return; }
+      if (a.no) { selecionado = a.no; marcarCaminho(); mostrarDetalhe(porId[a.no]); }
+      else { selecionado = null; marcarCaminho(); det.hidden = true; }
+    };
+    svg.addEventListener('pointerup', soltar);
+    svg.addEventListener('pointercancel', soltar);
+    svg.addEventListener('wheel', function (e) { e.preventDefault(); var r = palco.getBoundingClientRect(); zoom(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+
+    function moverNo(id) {
+      // redesenha só a posição do nó e dos fios ligados a ele
+      var p0 = layout();
+      pos = p0;
+      var g = elNo[id]; if (g) g.setAttribute('transform', 'translate(' + p0[id].x + ',' + p0[id].y + ')');
+      [id].concat(filhos[id]).forEach(function (f) {
+        var fio = elFio[f]; if (!fio || !p0[f]) return;
+        var de = fio.de === raiz.id ? { x: 0, y: p0[f].y } : p0[fio.de];
+        var largDe = fio.de === raiz.id ? 0 : largura(porId[fio.de]) / 2 * (p0[f].lado || 1);
+        fio.el.setAttribute('d', curva({ x: de.x + largDe, y: de.y }, { x: p0[f].x - largura(porId[f]) / 2 * (p0[f].lado || 1), y: p0[f].y }));
+      });
+    }
+
+    function mostrarDetalhe(n) {
+      var st = n.livro ? { lido: 'Lido', lendo: 'Lendo agora', quero: 'Ainda não leu' }[n.livro] : n.status_txt || '';
+      var qtd = filhos[n.id].length;
+      det.hidden = false;
+      det.style.setProperty('--cor', n.cor);
+      det.innerHTML = '<button class="btn-ico cb-fechar" aria-label="Fechar">' + svgIco('<path d="M6 6l12 12M18 6L6 18"/>') + '</button>' +
+        '<div class="cb-det-ico">' + svgIco(CB_ICO[n.icone] || CB_ICO.nota) + '</div><h3>' + esc(n.nome) + '</h3>' +
+        (st ? '<span class="selo ' + (n.livro === 'lido' || n.status === 'ok' ? 'lido' : n.livro === 'lendo' || n.status === 'andamento' ? 'lendo' : '') + '">' + esc(st) + '</span>' : '') +
+        (n.resumo ? '<p>' + esc(n.resumo) + '</p>' : '') +
+        (qtd ? '<p class="mini">' + qtd + (qtd === 1 ? ' ligação' : ' ligações') + ' abaixo</p>' : '') +
+        '<div class="linha">' + (n.abrir ? '<a class="btn cheio pequeno" href="' + esc(n.abrir) + '">Abrir no Obsidian</a>' : '') +
+        (n.livro ? '<a class="btn pequeno" href="#estudos">Ver na estante</a>' : '') + '</div>';
+      $('.cb-fechar', det).addEventListener('click', function () { det.hidden = true; selecionado = null; marcarCaminho(); });
+    }
+
+    // ---------- ferramentas
+    $$('[data-cb]', tela).forEach(function (b) {
+      b.addEventListener('click', function () {
+        var a = b.dataset.cb;
+        if (a === 'mais') zoom(1.2); else if (a === 'menos') zoom(1 / 1.2);
+        else if (a === 'centro') { CB.arrastes = {}; LS.gravar('jv_cb_arrastes', {}); desenhar(false); centralizar(); }
+        else if (a === 'abrir') { CB.recolhidos = {}; LS.gravar('jv_cb_recolhidos', {}); desenhar(true); }
+      });
+    });
+    $('[data-cb-busca]', tela).addEventListener('input', function (e) {
+      var q = e.target.value.trim().toLowerCase();
+      if (!q) { selecionado = null; marcarCaminho(); det.hidden = true; return; }
+      var achado = d.nos.filter(function (n) { return n.nome.toLowerCase().indexOf(q) >= 0; })[0];
+      if (!achado) return;
+      var x = pai[achado.id], mudou = false;
+      while (x) { if (CB.recolhidos[x]) { CB.recolhidos[x] = false; mudou = true; } x = pai[x]; }
+      if (mudou) desenhar(false);
+      selecionado = achado.id; marcarCaminho(); mostrarDetalhe(achado);
+      var p = pos[achado.id];
+      cam.x = palco.clientWidth / 2 - p.x * cam.k; cam.y = palco.clientHeight / 2 - p.y * cam.k; aplicarCam();
+    });
+
+    desenhar(true);
+    if (vista) aplicarCam(); else centralizar();
+  }
+
   // ================================================================ Spotify (PKCE, direto do navegador)
   var SP = {
     clientId: '',
@@ -1141,7 +1606,17 @@
   window.addEventListener('hashchange', function () { if ($('#tela')) navegar(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 
+  var VERSAO = '5';
+  function atualizarApp() {
+    try { if (sessionStorage.getItem('jv_atualizou') === VERSAO) return false; sessionStorage.setItem('jv_atualizou', VERSAO); } catch (e) { return false; }
+    var limpar = [];
+    if ('serviceWorker' in navigator) limpar.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.update(); })); }));
+    if (window.caches) limpar.push(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k.indexOf('fontes') < 0; }).map(function (k) { return caches.delete(k); })); }));
+    Promise.all(limpar).catch(function () {}).then(function () { location.reload(); });
+    return true;
+  }
   pedir('estado').then(function (s) {
+    if (s.versao && s.versao !== VERSAO && atualizarApp()) return;
     CSRF = s.csrf;
     estado.instalado = s.instalado;
     LS.gravar('jv_c:estado', s);
