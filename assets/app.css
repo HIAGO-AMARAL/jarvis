@@ -801,3 +801,17 @@ a.btn { text-decoration: none; }
 .metas > .meta { min-width: 0; }
 .meta-topo strong { min-width: 0; flex: 1; }
 .meta-topo span { flex: none; }
+/* contas do mês */
+.contas-resumo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.contas-resumo div { padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, .03); border: 1px solid var(--borda); }
+.contas-resumo span { display: block; font-size: 12px; color: var(--texto-3); }
+.contas-resumo strong { font-family: var(--fonte-titulo); font-size: 17px; font-weight: 600; }
+.contas-resumo .mais { color: #34d399; } .contas-resumo .menos { color: #fbbf24; }
+.contas-barra { height: 6px; border-radius: 99px; background: rgba(255, 255, 255, .06); overflow: hidden; margin-bottom: 14px; }
+.contas-barra i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #34d399, #6ee7b7); transition: width .6s; animation: meta-cresce 1s cubic-bezier(.2, .8, .2, 1); }
+.conta .conta-situ { font-weight: 500; }
+.conta.paga { opacity: .55; } .conta.paga .item-titulo { text-decoration: line-through; } .conta.paga .conta-situ { color: #34d399; text-decoration: none; }
+.conta.atrasada { border-color: rgba(248, 113, 113, .35); background: rgba(248, 113, 113, .05); } .conta.atrasada .conta-situ { color: #f87171; }
+.conta.perto .conta-situ { color: #fbbf24; }
+.conta .eco-valor { color: var(--texto); }
+@media (max-width: 900px) { .contas-resumo strong { font-size: 14px; } .conta .eco-cat-ico { display: none; } }

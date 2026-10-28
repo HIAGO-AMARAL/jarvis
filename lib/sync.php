@@ -23,6 +23,7 @@ const ROTAS_OFFLINE = [
     'estudo_salvar', 'estudo_excluir', 'livro_salvar', 'livro_excluir',
     'comida_adicionar', 'comida_excluir', 'metas_salvar',
     'economia_salvar', 'economia_excluir', 'cofrinho_salvar', 'cofrinho_excluir', 'meta_salvar', 'meta_excluir',
+    'conta_salvar', 'conta_excluir', 'conta_pagar',
 ];
 
 /** Qual item uma ação altera (null = ação que só cria, sem conflito possível). */
@@ -69,6 +70,11 @@ function chave_versao(string $r, array $e): ?string
         case 'meta_salvar':
         case 'meta_excluir':
             return $id > 0 ? "meta:$id" : null;
+        case 'conta_salvar':
+        case 'conta_excluir':
+            return $id > 0 ? "conta:$id" : null;
+        case 'conta_pagar':
+            return "conta_paga:$id:" . preg_replace('/[^0-9-]/', '', (string) ($e['mes'] ?? ''));
     }
     return null;
 }

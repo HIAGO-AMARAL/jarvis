@@ -31,7 +31,7 @@
   var ROTAS_OFFLINE = ['tarefa_salvar', 'tarefa_marcar', 'tarefa_excluir', 'habito_marcar', 'habito_salvar', 'habito_excluir',
     'refeicao_marcar', 'refeicao_salvar', 'refeicao_excluir', 'treino_salvar', 'peso_salvar', 'peso_excluir',
     'estudo_salvar', 'estudo_excluir', 'livro_salvar', 'livro_excluir', 'comida_adicionar', 'comida_excluir', 'metas_salvar',
-    'economia_salvar', 'economia_excluir', 'cofrinho_salvar', 'cofrinho_excluir', 'meta_salvar', 'meta_excluir'];
+    'economia_salvar', 'economia_excluir', 'cofrinho_salvar', 'cofrinho_excluir', 'meta_salvar', 'meta_excluir', 'conta_salvar', 'conta_excluir', 'conta_pagar'];
   var ROTAS_LENTAS = ['chat_enviar', 'livro_opiniao', 'comida_adicionar', 'comida_balanco', 'ia_testar', 'sync', 'pet_enviar'];
   var LS = {
     ler: function (k, padrao) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : padrao; } catch (e) { return padrao; } },
@@ -175,6 +175,12 @@
         }
       });
       xp = rota === 'cofrinho_salvar' && c.tipo !== 'retirar' ? 10 : 0;
+    } else if (rota === 'conta_pagar' || rota === 'conta_salvar' || rota === 'conta_excluir') {
+      cada('economia', function (v) {
+        if (rota === 'conta_pagar') { if (c.mes !== v.mes) return; var x = (v.contas || []).filter(function (k) { return +k.id === +c.id; })[0]; if (x) x.pago_em = c.paga ? agoraLocal() : null; }
+        else if (rota === 'conta_excluir') tirar(v.contas, c.id);
+        else { v.contas = (v.contas || []).filter(function (k) { return +k.id !== +c.id; }); v.contas.push({ id: c.id, nome: c.nome, valor: parseFloat(String(c.valor).replace(/\./g, '').replace(',', '.')) || 0, dia: c.dia, categoria: c.categoria, pago_em: null }); v.contas.sort(function (a, b) { return a.dia - b.dia; }); }
+      });
     } else if (rota === 'economia_excluir' || rota === 'cofrinho_excluir' || rota === 'meta_excluir') {
       cada('economia', function (v) { var k = { economia_excluir: 'lancamentos', cofrinho_excluir: 'movimentos', meta_excluir: 'metas' }[rota]; tirar(v[k], c.id); });
     } else if (rota === 'comida_excluir') {
@@ -1015,6 +1021,28 @@
         card('cofre', '<path d="M5 11a7 6 0 0 1 13 0v4l-2 1v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11z"/><path d="M10 6.5h4"/><circle cx="15" cy="11" r=".6"/>', 'No porquinho', BRL(d.cofrinho), 'guardado no banco') +
         '</div>' +
         '<div class="grade">' +
+        // lançamento
+        '<section class="painel c-5"><header><h2 class="titulo-pixel">Anotar</h2></header>' +
+        '<form data-lanc class="form-pilha" style="display:grid;gap:12px"><div class="pq-tipo eco-tipo"><button type="button" class="ativo" data-tipo="entrada">Ganhei</button><button type="button" data-tipo="saida">Gastei</button></div>' +
+        '<div class="form-grade"><label class="campo">Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00" required></label><label class="campo">Dia<input type="date" name="data" value="' + (iso(new Date()).slice(0, 7) === mes ? iso(new Date()) : mes + '-01') + '"></label></div>' +
+        '<label class="campo">Por quê?<input name="descricao" placeholder="Ex.: site do Jhonattas, lanche, jogo na Steam" required></label>' +
+        '<div class="eco-cats" data-cats></div><button class="btn cheio">Salvar</button></form></section>' +
+        // contas do mês
+        '<section class="painel c-7"><header><h2 class="titulo-pixel">Contas do mês</h2><button class="btn pequeno" data-conta="0">' + ico('mais') + ' Conta</button></header>' +
+        (d.contas.length ? (function () {
+          var hojeIso = iso(new Date()), mesAtual = hojeIso.slice(0, 7) === mes, diaHoje = new Date().getDate();
+          var total = d.contas.reduce(function (s, c) { return s + +c.valor; }, 0), pagas = d.contas.filter(function (c) { return c.pago_em; });
+          var falta = total - pagas.reduce(function (s, c) { return s + +c.valor; }, 0);
+          return '<div class="contas-resumo"><div><span>Total</span><strong>' + BRL(total) + '</strong></div><div><span>Pagas</span><strong class="mais">' + pagas.length + ' de ' + d.contas.length + '</strong></div><div><span>Falta pagar</span><strong class="' + (falta > 0 ? 'menos' : 'mais') + '">' + BRL(falta) + '</strong></div></div>' +
+            '<div class="contas-barra"><i style="width:' + (total ? (total - falta) / total * 100 : 0).toFixed(1) + '%"></i></div><ul class="lista">' +
+            d.contas.map(function (c) {
+              var paga = !!c.pago_em, venc = +c.dia, situ = paga ? 'paga' : mesAtual && venc < diaHoje ? 'atrasada' : mesAtual && venc - diaHoje <= 3 ? 'perto' : '';
+              var rot = paga ? 'Paga' : situ === 'atrasada' ? 'Atrasada' : situ === 'perto' ? (venc === diaHoje ? 'Vence hoje' : 'Vence em ' + (venc - diaHoje) + (venc - diaHoje === 1 ? ' dia' : ' dias')) : 'Vence dia ' + venc;
+              return '<li class="item conta ' + situ + '"><button class="check ' + (paga ? 'on' : '') + '" data-pagar="' + c.id + '" aria-label="Marcar como paga">' + ico('check') + '</button>' +
+                '<span class="eco-cat-ico menos">' + svgIco(ECO_ICO[c.categoria] || ECO_ICO.contas) + '</span><div class="item-titulo">' + esc(c.nome) + '<small class="conta-situ">' + rot + '</small></div>' +
+                '<strong class="eco-valor">' + BRL(c.valor) + '</strong><button class="btn-ico" data-conta="' + c.id + '" aria-label="Editar">' + ico('editar') + '</button></li>';
+            }).join('') + '</ul>';
+        })() : '<div class="vazio">Anote as contas que se repetem todo mês (cartão, internet, academia). Marcou como paga, ela entra no extrato sozinha.</div>') + '</section>' +
         // porquinho
         '<section class="painel c-5 pq-painel"><header><h2 class="titulo-pixel">Porquinho</h2><span class="mini">+10 XP por dia que guardar</span></header>' +
         '<div class="pq-palco">' + porquinhoSvg() + '<div class="pq-valor"><span>Guardado</span><strong data-pq-valor>' + BRL(d.cofrinho) + '</strong></div></div>' +
@@ -1033,12 +1061,6 @@
             '<div class="meta-pe"><span>' + Math.floor(pct) + '%</span><span>' + (falta <= 0 ? 'Já dá pra comprar!' : 'Faltam <b>' + BRL(falta) + '</b>') + '</span></div></div></div>';
         }).join('') + '</div>' : '<div class="vazio">Crie uma meta, tipo um PlayStation 5, e veja quanto falta.</div>') +
         (d.metas.length > metasAbertas.length ? '<p class="mini" style="margin-top:12px">Conquistadas: ' + d.metas.filter(function (m) { return +m.concluida; }).map(function (m) { return esc(m.nome); }).join(', ') + '</p>' : '') + '</section>' +
-        // lançamento
-        '<section class="painel c-5"><header><h2 class="titulo-pixel">Anotar</h2></header>' +
-        '<form data-lanc class="form-pilha" style="display:grid;gap:12px"><div class="pq-tipo eco-tipo"><button type="button" class="ativo" data-tipo="entrada">Ganhei</button><button type="button" data-tipo="saida">Gastei</button></div>' +
-        '<div class="form-grade"><label class="campo">Valor (R$)<input name="valor" inputmode="decimal" placeholder="0,00" required></label><label class="campo">Dia<input type="date" name="data" value="' + (iso(new Date()).slice(0, 7) === mes ? iso(new Date()) : mes + '-01') + '"></label></div>' +
-        '<label class="campo">Por quê?<input name="descricao" placeholder="Ex.: site do Jhonattas, lanche, jogo na Steam" required></label>' +
-        '<div class="eco-cats" data-cats></div><button class="btn cheio">Salvar</button></form></section>' +
         // extrato
         '<section class="painel c-7"><header><h2 class="titulo-pixel">Extrato de ' + nomeMes.split(' ')[0] + '</h2></header><ul class="lista">' +
         (d.lancamentos.length ? d.lancamentos.map(function (l) {
@@ -1046,9 +1068,9 @@
           return '<li class="item"><span class="eco-cat-ico ' + (e ? 'mais' : 'menos') + '">' + svgIco(ECO_ICO[l.categoria] || ECO_ICO.outros) + '</span><div class="item-titulo">' + esc(l.descricao) + '<small>' + br(l.data) + ' · ' + (catNome[l.categoria] || 'Outros') + '</small></div><strong class="eco-valor ' + (e ? 'mais' : 'menos') + '">' + (e ? '+ ' : '− ') + BRL(l.valor) + '</strong><button class="btn-ico" data-del-lanc="' + l.id + '" aria-label="Apagar">' + ico('lixo') + '</button></li>';
         }).join('') : '<li class="vazio">Nada anotado neste mês.</li>') + '</ul></section>' +
         // gráficos
-        '<section class="painel c-6"><header><h2 class="titulo-pixel">Para onde foi</h2></header>' +
+        '<section class="painel c-5"><header><h2 class="titulo-pixel">Para onde foi</h2></header>' +
         (Object.keys(d.categorias).length ? '<div class="eco-barras">' + Object.keys(d.categorias).map(function (k) { return '<div><span class="eco-cat-ico menos">' + svgIco(ECO_ICO[k] || ECO_ICO.outros) + '</span><span>' + (catNome[k] || k) + '</span><i><b style="width:' + (d.categorias[k] / maxCat * 100).toFixed(1) + '%"></b></i><strong>' + BRL(d.categorias[k]) + '</strong></div>'; }).join('') + '</div>' : '<div class="vazio">Sem gastos neste mês.</div>') + '</section>' +
-        '<section class="painel c-6"><header><h2 class="titulo-pixel">Últimos 6 meses</h2><span class="mini"><i class="leg mais"></i>entrou <i class="leg menos"></i>saiu</span></header><div class="eco-meses">' +
+        '<section class="painel c-12"><header><h2 class="titulo-pixel">Últimos 6 meses</h2><span class="mini"><i class="leg mais"></i>entrou <i class="leg menos"></i>saiu</span></header><div class="eco-meses">' +
         d.meses.map(function (m) { return '<div><div class="par"><i class="mais" style="height:' + (m.e / maxMes * 100).toFixed(1) + '%" title="Entrou ' + BRL(m.e) + '"></i><i class="menos" style="height:' + (m.s / maxMes * 100).toFixed(1) + '%" title="Saiu ' + BRL(m.s) + '"></i></div><span>' + deIso(m.mes + '-01').toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '') + '</span></div>'; }).join('') + '</div></section>' +
         '</div>';
 
@@ -1078,6 +1100,24 @@
       $$('[data-tipo]', fl).forEach(function (b) { b.addEventListener('click', function () { tipo = b.dataset.tipo; $$('[data-tipo]', fl).forEach(function (x) { x.classList.toggle('ativo', x === b); }); fl.classList.toggle('gasto', tipo === 'saida'); desenharCats(); }); });
       fl.addEventListener('submit', function (e) { e.preventDefault(); api('economia_salvar', { tipo: tipo, valor: fl.valor.value, descricao: fl.descricao.value, categoria: cat, data: fl.data.value }).then(function () { toast(tipo === 'entrada' ? 'Entrada anotada.' : 'Gasto anotado.'); recarregar(); }); });
       $$('[data-del-lanc]', tela).forEach(function (b) { b.addEventListener('click', function () { api('economia_excluir', { id: +b.dataset.delLanc }).then(recarregar); }); });
+      // contas do mês
+      $$('[data-pagar]', tela).forEach(function (b) {
+        b.addEventListener('click', function () {
+          var on = !b.classList.contains('on'); b.classList.toggle('on', on);
+          api('conta_pagar', { id: +b.dataset.pagar, mes: mes, paga: on }).then(function () { if (on) { toast('Conta paga e anotada no extrato.'); bip([660, 880]); } setTimeout(recarregar, 350); });
+        });
+      });
+      $$('[data-conta]', tela).forEach(function (b) {
+        b.addEventListener('click', function () {
+          var id = +b.dataset.conta, c = d.contas.filter(function (x) { return +x.id === id; })[0] || { nome: '', valor: '', dia: 10, categoria: 'contas' }, catC = c.categoria;
+          var form = modal('<h2 class="titulo-pixel">' + (id ? 'Editar conta' : 'Nova conta do mês') + '</h2>' +
+            '<div class="form-grade"><label class="campo">Nome<input name="nome" value="' + esc(c.nome) + '" placeholder="Cartão de crédito"></label><label class="campo">Valor (R$)<input name="valor" inputmode="decimal" value="' + (c.valor ? String(c.valor).replace('.', ',') : '') + '" placeholder="150,00"></label><label class="campo">Vence todo dia<input name="dia" type="number" min="1" max="31" value="' + c.dia + '"></label></div>' +
+            '<div class="campo"><span>Tipo</span><div class="eco-cats gasto" data-cats-c>' + ECO_CATS.saida.map(function (x) { return '<button type="button" class="eco-cat ' + (x[0] === catC ? 'ativo' : '') + '" data-cat="' + x[0] + '">' + svgIco(ECO_ICO[x[0]]) + '<span>' + x[1] + '</span></button>'; }).join('') + '</div></div>',
+            [id ? ['Excluir', 'perigo', function () { return api('conta_excluir', { id: id }).then(recarregar); }] : null,
+             ['Salvar', 'cheio', function (f) { return api('conta_salvar', { id: id, nome: f.nome.value, valor: f.valor.value, dia: +f.dia.value, categoria: catC }).then(recarregar); }]]);
+          $('[data-cats-c]', form).addEventListener('click', function (e) { var x = e.target.closest('[data-cat]'); if (!x) return; catC = x.dataset.cat; $$('[data-cat]', form).forEach(function (y) { y.classList.toggle('ativo', y === x); }); });
+        });
+      });
       // metas
       $$('[data-meta]', tela).forEach(function (el) {
         el.addEventListener('click', function () {

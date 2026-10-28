@@ -498,12 +498,59 @@ function executar_rota(string $r): void
                     $q->execute([$m]);
                     $meses[] = ['mes' => $m] + $q->fetch();
                 }
+                $st = db()->prepare('SELECT c.*, p.pago_em FROM contas c LEFT JOIN contas_pagas p ON p.conta_id = c.id AND p.mes = ? WHERE c.ativa = 1 ORDER BY c.dia, c.nome');
+                $st->execute([$mes]);
+                $contas = $st->fetchAll();
                 $cofre = (float) db()->query("SELECT COALESCE(SUM(CASE WHEN tipo = 'guardar' THEN valor ELSE -valor END), 0) FROM cofrinho")->fetchColumn();
                 responder([
                     'mes' => $mes, 'lancamentos' => $lanc, 'entradas' => round($ent, 2), 'saidas' => round($sai, 2), 'categorias' => $cats, 'meses' => $meses,
                     'cofrinho' => round($cofre, 2), 'movimentos' => db()->query('SELECT * FROM cofrinho ORDER BY data DESC, id DESC LIMIT 30')->fetchAll(),
                     'metas' => db()->query('SELECT * FROM metas ORDER BY concluida, valor')->fetchAll(),
+                    'contas' => $contas,
                 ]);
+
+            case 'conta_salvar':
+                $nome = texto('nome', 80);
+                $valor = dinheiro(entrada()['valor'] ?? 0);
+                if ($nome === '' || $valor <= 0) {
+                    erro('Dê um nome e um valor para a conta.');
+                }
+                $dia = max(1, min(31, (int) (entrada()['dia'] ?? 10)));
+                $cat = preg_replace('/[^a-z_]/', '', (string) (entrada()['categoria'] ?? 'contas')) ?: 'contas';
+                if ($id > 0) {
+                    db()->prepare('UPDATE contas SET nome = ?, valor = ?, dia = ?, categoria = ? WHERE id = ?')->execute([$nome, $valor, $dia, $cat, $id]);
+                } else {
+                    db()->prepare('INSERT INTO contas (nome, valor, dia, categoria, criado_em) VALUES (?, ?, ?, ?, ?)')->execute([$nome, $valor, $dia, $cat, agora()]);
+                    $id = (int) db()->lastInsertId();
+                }
+                responder(['ok' => true, 'id' => $id]);
+
+            case 'conta_excluir':
+                // some das próximas listas; o que já foi pago continua no extrato
+                db()->prepare('UPDATE contas SET ativa = 0 WHERE id = ?')->execute([$id]);
+                responder(['ok' => true]);
+
+            case 'conta_pagar':
+                $c = db()->query('SELECT * FROM contas WHERE id = ' . $id)->fetch();
+                $mes = preg_match('/^\d{4}-\d{2}$/', (string) (entrada()['mes'] ?? '')) ? entrada()['mes'] : substr(hoje(), 0, 7);
+                if (!$c) {
+                    erro('Conta não encontrada.', 404);
+                }
+                $st = db()->prepare('SELECT * FROM contas_pagas WHERE conta_id = ? AND mes = ?');
+                $st->execute([$id, $mes]);
+                $paga = $st->fetch();
+                if (!empty(entrada()['paga'])) {
+                    if (!$paga) {
+                        $ult = (int) date('t', strtotime($mes . '-01'));
+                        $d = substr(hoje(), 0, 7) === $mes ? hoje() : $mes . '-' . str_pad((string) min($c['dia'], $ult), 2, '0', STR_PAD_LEFT);
+                        db()->prepare('INSERT INTO economia (tipo, valor, descricao, categoria, data, criado_em) VALUES (?, ?, ?, ?, ?, ?)')->execute(['saida', $c['valor'], $c['nome'] . ' (conta do mês)', $c['categoria'], $d, agora()]);
+                        db()->prepare('INSERT INTO contas_pagas (conta_id, mes, lancamento_id, pago_em) VALUES (?, ?, ?, ?)')->execute([$id, $mes, (int) db()->lastInsertId(), agora()]);
+                    }
+                } elseif ($paga) {
+                    db()->prepare('DELETE FROM economia WHERE id = ?')->execute([(int) $paga['lancamento_id']]);
+                    db()->prepare('DELETE FROM contas_pagas WHERE conta_id = ? AND mes = ?')->execute([$id, $mes]);
+                }
+                responder(['ok' => true]);
 
             case 'economia_salvar':
                 $valor = dinheiro(entrada()['valor'] ?? 0);
